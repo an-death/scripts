@@ -9,12 +9,12 @@ import datetime
 import codecs
 
 BOX = False
-DEFAULT_LOGIN = 'ts'
-DEFAULT_PASS = 'of1Aengo'
-DEFAULT_STREAM_LOGIN = 'tetrasoft'
-DEFAULT_STREAM_PATH = '/home/{}/stream/storage/'.format(DEFAULT_STREAM_LOGIN)
-DEFAULT_ADDR = '10.246.75.1'  # nova
-# DEFAULT_PORT = '9082'
+DEFAULT_LOGIN = 'login'
+DEFAULT_PASS = 'password'
+DEFAULT_STREAM_LOGIN = 'login2'
+DEFAULT_STREAM_PATH = 'path'.format(DEFAULT_STREAM_LOGIN)
+DEFAULT_ADDR = 'adr'  # address
+# DEFAULT_PORT = 'port'
 
 DEFAULT_PATH_BOX = '/media/hdd/connect/video/'
 
