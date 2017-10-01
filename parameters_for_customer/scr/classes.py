@@ -145,16 +145,45 @@ class Project(MetaProject):
         return res
 
 
+class Well():
+    def __init__(self, name):
+        self.name = name
+
+    def get_info(self, server):
+        sql_req = 'select ' \
+                  'w.id as w_id, wellbore_id, w.source_id, w.created_date, w.modified_date as last_update, w.name, ' \
+                  'w.alias, s.product_key, st.name_en as station ' \
+                  'from WITS_WELL w join WITS_SOURCE s on (s.id = w.source_id) ' \
+                  'join WITS_SOURCE_TYPE st on (s.type_id=st.id) ' \
+                  'where w.name = "{}"'.format(self.name)
+        res = server.sql_execute(sql_req)[0]
+        self.w_id = res.w_id
+        self.wb_id = res.wellbore_id
+        self.s_id = res.source_id
+        self.alias = res.alias
+        self.created_date = res.created_date
+        self.last_update = res.last_update
+        self.product_key = res.product_key
+        self.gbox = res.product_key.split('-')[1]
+        self.station = res.station
+
+
 def test():
     prj_list = ['bke', 'nova', 'st', 'ggr', 'igs', 'eriell', 'gk']
     for prj in prj_list:
         p = Project(prj)
         p.fill()
         p.sql_engine()
-        p.info()
+        # p.info()
         assert p.name != 'UNSPECIFIED'
         assert p.engine
         # print(st)
-# st.engine.execute('desc WITS_SOURCE')
+    st = Project('st')
+    st.fill()
+    st.sql_engine()
+    well = Well('Требса к.8, 1')
+    well.get_info(st)
+    assert well.w_id
+    # st.engine.execute('desc WITS_SOURCE')
 if __name__ == '__main__':
     test()
