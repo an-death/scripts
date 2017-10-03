@@ -32,9 +32,9 @@ def get_param_table(connect, record_id, source_type_id):
     return param_table
 
 
-def get_data_tables(connect, wellbore_id):
-    sql_query_idx = 'select * from WITS_RECORD1_IDX_{}'.format(wellbore_id)
-    sql_query_data = 'select idx_id as id, mnemonic, value from WITS_RECORD1_DATA_{}'.format(wellbore_id)
+def get_data_tables(connect, record_id, wellbore_id):
+    sql_query_idx = 'select * from WITS_RECORD{}_IDX_{}'.format(record_id, wellbore_id)
+    sql_query_data = 'select idx_id as id, mnemonic, value from WITS_RECORD{}_DATA_{}'.format(record_id, wellbore_id)
     with connect as cn:
         idx_table = pd.read_sql_query(sql_query_idx, cn, index_col='id', parse_dates=['date'])
         data_table = pd.read_sql_query(sql_query_data, cn)
@@ -46,9 +46,9 @@ def get_data_tables(connect, wellbore_id):
     return merget_table
 
 
-def get_big_table(connect, actc_table, wellbore_id):
+def get_big_table(connect, actc_table, record_id, wellbore_id):
     data_dict = {}
-    table = get_data_tables(connect, wellbore_id)
+    table = get_data_tables(connect, record_id, wellbore_id)
     table.ACTC = table.ACTC.replace(actc_table.set_index('id').to_dict().get('name_ru'))
 
     for column in table:
@@ -69,7 +69,7 @@ def get_big_table(connect, actc_table, wellbore_id):
 
 
 def return_work_table(connect, param_table, actc_table, record_id, wellbore_id):
-    table = get_big_table(connect, actc_table, wellbore_id)
+    table = get_big_table(connect, actc_table, record_id, wellbore_id)
     # ____-----debug-------------------------------------------------
     # def repiter(table, param_table):
     #     ids_list = []
@@ -85,8 +85,8 @@ def return_work_table(connect, param_table, actc_table, record_id, wellbore_id):
     # table.index = repiter(table, param_table)
     # _--------------------------------------------------------------
     #  Преобазуем мнемоники в id и сортируем по id
-    table.index = [int(id.get_values()[0]) for id in
-                       [param_table[param_table['mnem'] == mnem].index for mnem in table.index]]
+    table.index = [int(ids.get_values()[0]) for ids in
+                   [param_table[param_table['mnem'] == mnem].index for mnem in table.index]]
     table.sort_index(inplace=True)
     #  Отформатировали таблицу по параметрам
     #  Преобразовываем параметры в называния и юниты
@@ -96,8 +96,8 @@ def return_work_table(connect, param_table, actc_table, record_id, wellbore_id):
 
     return table
 
-def excel_writer(table):
 
+def excel_writer(table):
     # Записываем в фаил и форматируем как надо, пока фаил открыт.
     with pd.ExcelWriter('test_1.xlsx', engine='xlsxwriter', datetime_format='DD/MM/YY hh:mm:ss') as writer:
         sheet_name = '1 Рекорд'
@@ -109,7 +109,7 @@ def excel_writer(table):
         # sheet.conditional_format('B4:I26', {'type': '3_color_scale'})
         # sheet.set_column('A:A', 3)
         sheet.set_column('A4:A{}'.format(26), 28)  # На индексные ячейки формат не применяется =(
-        for col in range(1, 100, 2):#['c', 'e', 'g', 'i', 'k', 'm', 'o', 'q']:
+        for col in range(1, 100, 2):  # ['c', 'e', 'g', 'i', 'k', 'm', 'o', 'q']:
 
             sheet.set_column(':'.join([xl_col_to_name(col)] * 2), 18)
 
@@ -118,7 +118,7 @@ def main():
     # todo Это будет инпут от пользователя.
     name = 'NewWELL'
     project = 'st'
-    list_of_records = [1] #, 2, 3]
+    list_of_records = [1]  # , 2, 3]
     # --------------------------------------------------------------
     # Создаём движок для подключения к базе соответствующего проекта
     server = Project(project)
@@ -129,7 +129,8 @@ def main():
     #
     tables = {
         'actc_table': get_actc(server.engine.connect()),
-        'common_tables': {'record_' + str(k): get_param_table(server.engine.connect(), k, well.source_type_id) for k in list_of_records},
+        'common_tables': {'record_' + str(k): get_param_table(server.engine.connect(), k, well.source_type_id) for k in
+                          list_of_records},
     }
 
     tables['data_tables'] = {
@@ -142,6 +143,7 @@ def main():
         ) for k in list_of_records
     }
     excel_writer(tables['data_tables']['record_1'])
+
 
 if __name__ == '__main__':
     main()
