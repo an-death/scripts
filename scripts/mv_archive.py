@@ -22,7 +22,10 @@ def docs(script_name, help=False):
 def check_input_args(*args):
     """
     :param args: Список аргуменов переданных скрипту
-    :return: Class Path()
+    :return:
+        store - object:Path(откуда)
+        dest - object:Path(куда)
+        move - bool:True/False
     """
     script_name = args[0]
     for arg in args:
@@ -31,9 +34,10 @@ def check_input_args(*args):
 
     store = path.Path(args[1])
     dest = path.Path(args[2])
+    move = True if args[3] == 'move' else False
     if not store.isdir():
         exit('Каталог c архивом по пути: "{}" не найден! Выходим'.format(store))
-    return store, dest
+    return store, dest, move
 
 
 def check_dest_path(dest):
@@ -68,8 +72,9 @@ def print_progress_bar(iteration, total, file_name, prefix='', suffix='', decima
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + '-' * (length - filledLength)
     print(
-        '\rFile {} Current id : {} | {} |{}| {}% {}'.format(file_name ,iteration, prefix, bar, percent,
-                                                                         suffix),
+        '\rFile {} | Current iteration : {} | Max: {} | {} |{}| {}% {}'.format(file_name, iteration, total,
+                                                                               prefix, bar, percent,
+                                                                               suffix),
         end='\r')
     # Print New Line on Complete
     if iteration == total:
@@ -82,15 +87,15 @@ def main():
 Принимает:
 {Первой переменной} : Путь до восстановленного архива
 {Второй переменной} : Путь куда перенести архив создав новое древо подобно коннекту {date}/{hour}/{file}
+{Третьей переменной}: Опционально можду указать 'move' для того чтобы мувать файлы. Иначе копирует.
 """
-
-    store, dest = check_input_args(*sys.argv)
     file_pattern = '*.flv'
+
+    store, dest, move = check_input_args(*sys.argv)
     check_dest_path(dest)
-    total = len([i for i in store.walk(file_pattern)])
-    print_progress_bar(0,total, '', prefix='Progress',  suffix='Complete', length=50)
+    total = len([i for i in store.walk(file_pattern)]) - 1
+    print_progress_bar(0, total, '', prefix='Progress', suffix='Complete', length=50)
     for i, file in enumerate(store.walk(file_pattern)):
-        print_progress_bar(i, total, file.name,  prefix='Progress',  suffix='Complete', length=50)
         path_to_new_store = dest
         date, time = get_datetime(file.name)
         date = date.isoformat()
@@ -98,14 +103,21 @@ def main():
         path_to_new_store = path_to_new_store + date + '/'
         if not path_to_new_store.exists():
             path_to_new_store.mkdir()
-        path_to_new_store = path_to_new_store + hour
+        path_to_new_store = path_to_new_store + hour + '/'
         if not path_to_new_store.exists():
             path_to_new_store.mkdir()
-        # file.copy(path_to_new_store)
-        try:
-            file.move(path_to_new_store)
-        except Exception:
+        if (path_to_new_store + file.name).exists():
+            print('File {} already exist in destination directory. Skipping..'.format(file.name))
             continue
+        try:
+            if move:
+                file.move(path_to_new_store)
+            else:
+                file.copy(path_to_new_store)
+        except Exception:
+            print('File {} already exist in destination directory. Skipping..'.format(file.name))
+            continue
+        print_progress_bar(i, total, file.name, prefix='Progress', suffix='Complete', length=50)
 
 
 if __name__ == '__main__':
