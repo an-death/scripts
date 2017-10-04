@@ -7,6 +7,7 @@ from __future__ import print_function
 import sys
 import path
 import datetime
+# todo прикрутить argparse
 
 
 def docs(script_name, help=False):
@@ -87,8 +88,9 @@ def main():
 Принимает:
 {Первой переменной} : Путь до восстановленного архива
 {Второй переменной} : Путь куда перенести архив создав новое древо подобно коннекту {date}/{hour}/{file}
-{Третьей переменной}: Опционально можду указать 'move' для того чтобы мувать файлы. Иначе копирует.
+{Третьей переменной}: Опционально можду указать 'move/copy' для того чтобы мувать файлы. Иначе копирует.
 """
+
     file_pattern = '*.flv'
 
     store, dest, move = check_input_args(*sys.argv)
@@ -107,8 +109,9 @@ def main():
         if not path_to_new_store.exists():
             path_to_new_store.mkdir()
         if (path_to_new_store + file.name).exists():
-            print('File {} already exist in destination directory. Skipping..'.format(file.name))
-            continue
+            if (path_to_new_store + file.name).read_md5() == file.read_md5():
+                print('File {} already exist in destination directory. Skipping..'.format(file.name))
+                continue
         try:
             if move:
                 file.move(path_to_new_store)
