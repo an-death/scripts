@@ -7,7 +7,7 @@ from xlsxwriter.utility import xl_range, xl_col_to_name
 
 from classes import Project, Well
 
-RECORD_COMPR = {
+RECORDS_COMPREHENSION = {
     'record_1': 'Основные временные',
     'record_11': 'Состояние емкостей',
     'record_12': 'Данные хромотографа'
@@ -107,16 +107,48 @@ def return_work_table(connect, param_table, actc_table, record_id, wellbore_id):
 
 
 def write_first_sheet(writer, common_tables_dict):
+
     sheet_name = 'Параметры'
     full_param_table = pd.concat([common_tables_dict[key] for key in common_tables_dict],
                                  copy=False, axis=1,
                                  join_axes=[common_tables_dict['record_1'].index])
 
-    full_param_table.to_excel(writer, sheet_name, index=False, header=['Мнем','Юнит','Параметр']*3
+    full_param_table.to_excel(writer, sheet_name, index=False, header=['Мнем', 'Юнит', 'Параметр'] * 3
                               )
     sheet = writer.sheets[sheet_name]
     for i in range(2, len(full_param_table.columns), 3):
-        sheet.set_column(':'.join([xl_col_to_name(i)]*2), 28)
+        sheet.set_column(':'.join([xl_col_to_name(i)] * 2), 28)
+
+
+def write_data_tables(writer, data_tables, formats):
+
+    for table_key in data_tables:
+        sheet_name = RECORDS_COMPREHENSION[table_key]
+        table = data_tables[table_key]
+        # table.reset_index(inplace=True)
+        table.to_excel(writer, sheet_name=sheet_name)
+
+        last_row = len(table.index) + 2
+        last_col = len(table.columns)
+        sheet = writer.sheets[sheet_name]
+        # for row in range(3, last_row, 2):
+        #     sheet.set_column(':'.join([xl_range(row, 0 , row, last_col)]), cell_format=blue)
+        sheet.set_column('A:A', 28)  # На индексные ячейки формат не применяется =(
+        for col in range(1, last_col, 2):
+            dates = ':'.join([xl_range(3, col, last_row, col)])
+            datas = ':'.join([xl_range(3, col + 1, last_row, col + 1)])
+            sheet.set_column(dates, 18, None, {'align': 'left'})
+            if datas:
+                # sheet.conditional_format(datas, {'type': '3_color_scale'})
+                sheet.conditional_format(datas, {'type': 'cell',
+                                                 'criteria': '>',
+                                                 'value': '5000',
+                                                 'format': formats['red']})
+                sheet.conditional_format(datas, {'type': 'cell',
+                                                 'criteria': '==',
+                                                 'value': '0',
+                                                 'format': formats['grey']})
+
 
 def excel_writer(well_name, common_tables, data_tables):
     # Записываем в фаил и форматируем как надо, пока фаил открыт.
@@ -124,39 +156,16 @@ def excel_writer(well_name, common_tables, data_tables):
     with pd.ExcelWriter(file_name, engine='xlsxwriter', datetime_format='DD/MM/YY hh:mm:ss') as writer:
         book = writer.book
         #  Formats
-        red = book.add_format({'bg_color': '#FFC7CE',
-                               'font_color': '#9C0006'})
-        grey = book.add_format({'bg_color': '#f0f0f0'})
-        blue = book.add_format({'bg_color': '#eceff4'})
-        date_format = book.add_format({'align': 'left'})
+        formats = {
+            'red':book.add_format({'bg_color': '#FFC7CE',
+                                 'font_color': '#9C0006'}),
+            'grey':book.add_format({'bg_color': '#f0f0f0'}),
+            'blue':book.add_format({'bg_color': '#eceff4'}),
+            'date_format':book.add_format({'align': 'left'})
+        }
+
         write_first_sheet(writer, common_tables)
-
-        for table_key in data_tables:
-            sheet_name = RECORD_COMPR[table_key]
-            table = data_tables[table_key]
-            # table.reset_index(inplace=True)
-            table.to_excel(writer, sheet_name=sheet_name)
-
-            last_row = len(table.index) + 2
-            last_col = len(table.columns)
-            sheet = writer.sheets[sheet_name]
-            # for row in range(3, last_row, 2):
-            #     sheet.set_column(':'.join([xl_range(row, 0 , row, last_col)]), cell_format=blue)
-            sheet.set_column('A:A', 28)  # На индексные ячейки формат не применяется =(
-            for col in range(1, last_col, 2):
-                dates = ':'.join([xl_range(3, col, last_row, col)])
-                datas = ':'.join([xl_range(3, col + 1, last_row, col + 1)])
-                sheet.set_column(dates, 18, None, {'align': 'left'})
-                if datas:
-                    # sheet.conditional_format(datas, {'type': '3_color_scale'})
-                    sheet.conditional_format(datas, {'type': 'cell',
-                                                     'criteria': '>',
-                                                     'value': '5000',
-                                                     'format': red})
-                    sheet.conditional_format(datas, {'type': 'cell',
-                                                     'criteria': '==',
-                                                     'value': '0',
-                                                     'format': grey})
+        write_data_tables(writer, data_tables, formats)
 
 
 def main():
@@ -164,7 +173,7 @@ def main():
     well_name = 'Уренгойское к. U31'
     project = 'st'
     list_of_records = [1, 11, 12]
-    #---------------------------------------------------------------
+    # ---------------------------------------------------------------
     list_of_records.sort()
     # --------------------------------------------------------------
     # Создаём движок для подключения к базе соответствующего проекта
@@ -186,13 +195,13 @@ def main():
     }
     # Выгружаем и формируем табилцы из таблиц с данными.
     tables['data_tables'] = OrderedDict(('record_' + str(k),
-                return_work_table(
-                connect=server.engine.connect(),
-                actc_table=tables['actc_table'],
-                param_table=tables['common_tables'].get('record_' + str(k)),
-                record_id=k,
-                wellbore_id=well.wb_id
-                )) for k in list_of_records)
+                                         return_work_table(
+                                             connect=server.engine.connect(),
+                                             actc_table=tables['actc_table'],
+                                             param_table=tables['common_tables'].get('record_' + str(k)),
+                                             record_id=k,
+                                             wellbore_id=well.wb_id
+                                         )) for k in list_of_records)
     # ---------------------------------------------------------------
     # Отправляем таблицы на запись
     excel_writer(well_name, tables['common_tables'], tables['data_tables'])
