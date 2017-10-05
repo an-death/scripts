@@ -7,6 +7,7 @@ from xlsxwriter.utility import xl_range, xl_col_to_name
 
 from classes import Project, Well
 
+TEST = False
 RECORDS_COMPREHENSION = {
     'record_1': 'Основные временные',
     'record_11': 'Состояние емкостей',
@@ -107,7 +108,6 @@ def return_work_table(connect, param_table, actc_table, record_id, wellbore_id):
 
 
 def write_first_sheet(writer, common_tables_dict):
-
     sheet_name = 'Параметры'
     full_param_table = pd.concat([common_tables_dict[key] for key in common_tables_dict],
                                  copy=False, axis=1,
@@ -121,7 +121,7 @@ def write_first_sheet(writer, common_tables_dict):
 
 
 def write_data_tables(writer, data_tables, formats):
-
+    #  todo Придумать как перенести время в комменты к данным
     for table_key in data_tables:
         sheet_name = RECORDS_COMPREHENSION[table_key]
         table = data_tables[table_key]
@@ -134,54 +134,64 @@ def write_data_tables(writer, data_tables, formats):
         # for row in range(3, last_row, 2):
         #     sheet.set_column(':'.join([xl_range(row, 0 , row, last_col)]), cell_format=blue)
         sheet.set_column('A:A', 28)  # На индексные ячейки формат не применяется =(
+        full_datas = []
         for col in range(1, last_col, 2):
             dates = ':'.join([xl_range(3, col, last_row, col)])
             datas = ':'.join([xl_range(3, col + 1, last_row, col + 1)])
             sheet.set_column(dates, 18, None, {'align': 'left'})
-            if datas:
-                # sheet.conditional_format(datas, {'type': '3_color_scale'})
-                sheet.conditional_format(datas, {'type': 'cell',
+            full_datas.append(datas)
+            # if datas:
+            #     sheet.conditional_format(datas, {'type': '3_color_scale'})
+            #     sheet.conditional_format(datas, {'type': 'cell',
+            #                                      'criteria': '>',
+            #                                      'value': '5000',
+            #                                      'format': formats['red']})
+            #     sheet.conditional_format(datas, {'type': 'cell',
+            #                                      'criteria': '==',
+            #                                      'value': '0',
+            #                                      'format': formats['grey']})
+
+        sheet.conditional_format(full_datas[0], {'type': 'cell',
                                                  'criteria': '>',
                                                  'value': '5000',
-                                                 'format': formats['red']})
-                sheet.conditional_format(datas, {'type': 'cell',
+                                                 'format': formats['red'],
+                                                 'multi_range': ' '.join(full_datas)})
+        sheet.conditional_format(full_datas[0], {'type': 'cell',
                                                  'criteria': '==',
                                                  'value': '0',
-                                                 'format': formats['grey']})
+                                                 'format': formats['grey'],
+                                                 'multi_range': ' '.join(full_datas)})
 
 
-def excel_writer(well_name, common_tables, data_tables):
+
+def excel_writer(path_to_file, well_name, common_tables, data_tables):
     # Записываем в фаил и форматируем как надо, пока фаил открыт.
     file_name = well_name.replace(' ', '_') + '.xlsx'
+    file_name = '/'.join([path_to_file, file_name])
     with pd.ExcelWriter(file_name, engine='xlsxwriter', datetime_format='DD/MM/YY hh:mm:ss') as writer:
         book = writer.book
         #  Formats
         formats = {
-            'red':book.add_format({'bg_color': '#FFC7CE',
-                                 'font_color': '#9C0006'}),
-            'grey':book.add_format({'bg_color': '#f0f0f0'}),
-            'blue':book.add_format({'bg_color': '#eceff4'}),
-            'date_format':book.add_format({'align': 'left'})
+            'red': book.add_format({'bg_color': '#FFC7CE',
+                                    'font_color': '#9C0006'}),
+            'grey': book.add_format({'font_color': '#91949a'}),
+            'blue': book.add_format({'bg_color': '#eceff4'}),
+            'date_format': book.add_format({'align': 'left'})
         }
 
         write_first_sheet(writer, common_tables)
         write_data_tables(writer, data_tables, formats)
 
 
-def main():
-    # todo Это будет инпут от пользователя.
-    well_name = 'Уренгойское к. U31'
-    project = 'st'
-    list_of_records = [1, 11, 12]
-    # ---------------------------------------------------------------
-    list_of_records.sort()
+def param_for_customer(server_name, well_name, list_of_records, path_to_file='./'):
     # --------------------------------------------------------------
     # Создаём движок для подключения к базе соответствующего проекта
-    server = Project(project)
+    server = Project(server_name)
     server.fill()  # Загружаем конфиги
     server.sql_engine()  # Создаём SqlAlchemy движок
     well = Well(well_name, server)
     # --------------------------------------------------------------
+
     # Выгружаем и формируем дополнительные таблицы
     tables = {
         'actc_table': get_actc(server.engine.connect()),
@@ -204,7 +214,23 @@ def main():
                                          )) for k in list_of_records)
     # ---------------------------------------------------------------
     # Отправляем таблицы на запись
-    excel_writer(well_name, tables['common_tables'], tables['data_tables'])
+    excel_writer(path_to_file, well_name, tables['common_tables'], tables['data_tables'])
+    if TEST:
+        return tables
+
+
+def main():
+    # todo Это будет инпут от пользователя.
+    well_name = 'Уренгойское к. U31'
+    project = 'st'
+    list_of_records = [1, 11, 12]
+    # ---------------------------------------------------------------
+    list_of_records.sort()
+    # ---------------------------------------------------------------
+    param_for_customer(server_name=project,
+                       well_name=well_name,
+                       list_of_records=list_of_records,
+                       path_to_file='./tables')
 
 
 if __name__ == '__main__':
