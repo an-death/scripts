@@ -43,6 +43,7 @@ def get_param_table(connect, record_id, source_type_id):
 
 
 def get_data_tables(connect, record_id, wellbore_id):
+    # todo Переработать запросы и обсчитывать макс значения для каждого параметра для кажого ACTC на стороне базы
     sql_query_idx = 'select * from WITS_RECORD{}_IDX_{}'.format(record_id, wellbore_id)
     sql_query_data = 'select idx_id as id, mnemonic, value from WITS_RECORD{}_DATA_{}'.format(record_id, wellbore_id)
     with connect as cn:
@@ -50,6 +51,7 @@ def get_data_tables(connect, record_id, wellbore_id):
         data_table = pd.read_sql_query(sql_query_data, cn)
     # Разворачиваем таблицу, делая колонками мнемоники
     data_table = data_table.pivot(index='id', columns='mnemonic', values='value')
+    # data_table.
     # Мержим с индексой таблицей. Добовляем к каждому значению дату и глубину
     merget_table = idx_table.merge(data_table, left_index=True, right_index=True)
 
@@ -59,6 +61,7 @@ def get_data_tables(connect, record_id, wellbore_id):
 def get_big_table(connect, actc_table, record_id, wellbore_id):
     data_dict = {}
     table = get_data_tables(connect, record_id, wellbore_id)
+    table.fillna(0, inplace=True)
     table.ACTC = table.ACTC.replace(actc_table.set_index('id').to_dict().get('name_ru'))
 
     for column in table:
@@ -73,7 +76,9 @@ def get_big_table(connect, actc_table, record_id, wellbore_id):
             on='ACTC',
             suffixes=('_min', '_max')).set_index('ACTC')
 
-    big_table = pd.concat(list(data_dict.values()), keys=data_dict.keys(), axis=1)
+    datas = data_dict.values()
+    list_datas = list(datas)
+    big_table = pd.concat(list_datas, keys=data_dict.keys(), axis=1)
     big_table = big_table.unstack().unstack().unstack()
     return big_table
 
@@ -166,7 +171,7 @@ def write_data_tables(writer, data_tables, formats):
 
 def excel_writer(path_to_file, well_name, common_tables, data_tables):
     # Записываем в фаил и форматируем как надо, пока фаил открыт.
-    file_name = well_name.replace(' ', '_') + '.xlsx'
+    file_name = well_name.replace(',', '').replace(' ', '_') + '.xlsx'
     file_name = '/'.join([path_to_file, file_name])
     with pd.ExcelWriter(file_name, engine='xlsxwriter', datetime_format='DD/MM/YY hh:mm:ss') as writer:
         book = writer.book
@@ -188,7 +193,7 @@ def param_for_customer(server_name, well_name, list_of_records, path_to_file='./
     # Создаём движок для подключения к базе соответствующего проекта
     server = Project(server_name)
     server.fill()  # Загружаем конфиги
-    server.sql_engine()  # Создаём SqlAlchemy движок
+    server.sql_engine(loging=True)  # Создаём SqlAlchemy движок
     well = Well(well_name, server)
     # --------------------------------------------------------------
 
@@ -221,8 +226,8 @@ def param_for_customer(server_name, well_name, list_of_records, path_to_file='./
 
 def main():
     # todo Это будет инпут от пользователя.
-    well_name = 'Уренгойское к. U31'
-    project = 'st'
+    well_name = 'Восточно-Мессояхское к.103, скв.775'
+    project = 'h7'
     list_of_records = [1, 11, 12]
     # ---------------------------------------------------------------
     list_of_records.sort()

@@ -149,7 +149,7 @@ class Well():
     def __init__(self, name, server):
         self.name = name
         sql_req = 'select ' \
-                  'w.id as w_id, wellbore_id, w.source_id, w.created_date, w.modified_date as last_update, w.name, ' \
+                  'w.id as w_id, wellbore_id, w.source_id, w.created_date, w.modified_date as last_update,  COALESCE( ww.alias, ww.name) as name, ' \
                   'w.alias, s.product_key, s.type_id, st.name_en as station ' \
                   'from WITS_WELL w join WITS_SOURCE s on (s.id = w.source_id) ' \
                   'join WITS_SOURCE_TYPE st on (s.type_id=st.id) ' \
