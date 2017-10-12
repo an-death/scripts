@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import path
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 path_to_config_file = '/home/as/Документы/scr/.bash_connection_info.sh'
 CONFIGS = path.Path(path_to_config_file)
@@ -10,12 +11,14 @@ CONFIGS = path.Path(path_to_config_file)
 class MetaProject(object):
     """Meta info for Projects
     """
+
     def __init__(self, shortcut):
         """
         При создании объекта передаём один из вариантов его названия.
         :param shortcut:
         """
         self.shortcut = shortcut
+
     def __str__(self):
         prj = [
             ' Project {} '.format(self.name).center(70, '-'),
@@ -29,10 +32,10 @@ class MetaProject(object):
             'SSH INFO:',
             'Ssh_user: {}, Ssh_pass: {}'.format(self.login, self.password),
             'Connection: "{}"'.format('sshpass -p {} ssh -o StrictHostKeyChecking=no {}@{} -p{}'.
-                                    format(self.password,
-                                           self.login,
-                                           self.host,
-                                           self.port)),
+                                      format(self.password,
+                                             self.login,
+                                             self.host,
+                                             self.port)),
             'Path_to_stream: {}'.format(self.stream_path),
             'Path_to_reporting: {}'.format(self.report_path),
             'SQL INFO:',
@@ -43,18 +46,21 @@ class MetaProject(object):
                 self.db_port,
                 self.db_host
             ),
-            'SQL_Connection: "{}"'.format('mysql --default-character-set=utf8 --safe-updates -h {} -P {} -u{} -p{} {} -A'.
-                                        format(
-                self.db_host,
-                self.db_port,
-                self.db_login,
-                self.db_password,
-                self.db_name
-            ))
+            'SQL_Connection: "{}"'.format(
+                'mysql --default-character-set=utf8 --safe-updates -h {} -P {} -u{} -p{} {} -A'.
+                    format(
+                    self.db_host,
+                    self.db_port,
+                    self.db_login,
+                    self.db_password,
+                    self.db_name
+                ))
         ]
         return '\n'.join(prj)
+
     def __repr__(self):
         return '<{}({})'.format(self.name, ','.join([self.host, self.port, self.login, self.password]))
+
     def fill(self):
         """
         Заполняем объект полями доступными в .bash_connection_info.sh
@@ -108,10 +114,11 @@ class MetaProject(object):
         self.db_host = dict_of_attr.get('sqlGateIp', _def_db_host)
         self.encryptPK = dict_of_attr.get('encryptPK', _def_str)
         self.encryptLK = dict_of_attr.get('encryptLK', _def_str)
+
     def sql_engine(self, loging=False):
         """
         Создаём движок для подключения к базе на основе движка sqlalchemy
-        :return: engine
+        :return: self.engine
         """
 
         user = self.db_login
@@ -130,10 +137,14 @@ class MetaProject(object):
         # self.engine = engine
         # return engine
 
+    def sql_session_maker(self, engine):
+        self.session = sessionmaker()
+        self.session.configure(bind=engine)
 
 class Project(MetaProject):
     def info(self):
         print(MetaProject.__str__(self))
+
     def sql_execute(self, sql_command):
         """
         Передаём запрос, и получаем ответ.
@@ -149,7 +160,7 @@ class Well():
     def __init__(self, name, server):
         self.name = name
         sql_req = 'select ' \
-                  'w.id as w_id, wellbore_id, w.source_id, w.created_date, w.modified_date as last_update,  COALESCE( ww.alias, ww.name) as name, ' \
+                  'w.id as w_id, wellbore_id, w.source_id, w.created_date, w.modified_date as last_update,  COALESCE( w.alias, w.name) as name, ' \
                   'w.alias, s.product_key, s.type_id, st.name_en as station ' \
                   'from WITS_WELL w join WITS_SOURCE s on (s.id = w.source_id) ' \
                   'join WITS_SOURCE_TYPE st on (s.type_id=st.id) ' \
@@ -168,6 +179,7 @@ class Well():
         self.host = res.product_key.rsplit('-')[0].lower
         # todo Добавить Company and network_id
 
+
 def test():
     prj_list = ['bke', 'nova', 'st', 'ggr', 'igs', 'eriell', 'gk']
     for prj in prj_list:
@@ -184,5 +196,7 @@ def test():
     well = Well('Требса к.8, 1', project)
     assert well.w_id
     # st.engine.execute('desc WITS_SOURCE')
+
+
 if __name__ == '__main__':
     test()

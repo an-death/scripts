@@ -193,16 +193,17 @@ def param_for_customer(server_name, well_name, list_of_records, path_to_file='./
     server = Project(server_name)
     server.fill()  # Загружаем конфиги
     server.sql_engine(loging=True)  # Создаём SqlAlchemy движок
+    server.sql_session_maker(server.engine)
     well = Well(well_name, server)
     # --------------------------------------------------------------
 
     # Выгружаем и формируем дополнительные таблицы
     tables = {
-        'actc_table': get_actc(server.engine.connect()),
+        'actc_table': get_actc(server.session().connection()),
         'common_tables':
             OrderedDict(('record_' + str(k),
                          get_param_table(
-                             connect=server.engine.connect(),
+                             connect=server.session().connection(),
                              record_id=k,
                              source_type_id=well.source_type_id
                          )) for k in list_of_records)
@@ -210,7 +211,7 @@ def param_for_customer(server_name, well_name, list_of_records, path_to_file='./
     # Выгружаем и формируем табилцы из таблиц с данными.
     tables['data_tables'] = OrderedDict(('record_' + str(k),
                                          return_work_table(
-                                             connect=server.engine.connect(),
+                                             connect=server.session().connection(),
                                              actc_table=tables['actc_table'],
                                              param_table=tables['common_tables'].get('record_' + str(k)),
                                              record_id=k,
