@@ -4,6 +4,7 @@ import re
 import path
 import paramiko
 from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 path_to_config_file = '/home/as/Документы/scr/.bash_connection_info.sh'
 CONFIGS = path.Path(path_to_config_file)
@@ -167,6 +168,10 @@ class MetaProject(object):
             print('Project: {} Shortcuts: {}'.format(self.name,', '.join(self.shortcuts)))
         else:
             return self.shortcuts
+
+    def sql_session_maker(self):
+        self.session = Session(bind=self.engine)
+        return self.session.connection()
 
 class Project(MetaProject):
     def info(self):
