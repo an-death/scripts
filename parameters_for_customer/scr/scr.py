@@ -44,7 +44,7 @@ def get_param_table(connect, record_id, source_type_id):
 
 def get_data_tables(connect, record_id, wellbore_id):
     # todo Переработать запросы и обсчитывать макс значения для каждого параметра для кажого ACTC на стороне базы
-    sql_query_idx = 'select * from WITS_RECORD{}_IDX_{}'.format(record_id, wellbore_id)
+    sql_query_idx = 'select id,date,depth from WITS_RECORD{}_IDX_{}'.format(record_id, wellbore_id)
     sql_query_data = 'select idx_id as id, mnemonic, value from WITS_RECORD{}_DATA_{}'.format(record_id, wellbore_id)
     with connect as cn:
         idx_table = pd.read_sql_query(sql_query_idx, cn, index_col='id', parse_dates=['date'])
@@ -112,7 +112,7 @@ def return_work_table(connect, param_table, actc_table, record_id, wellbore_id):
     return table
 
 
-def write_first_sheet(writer, common_tables_dict):
+def write_param_sheet(writer, common_tables_dict):
     sheet_name = 'Параметры'
     full_param_table = pd.concat([common_tables_dict[key] for key in common_tables_dict],
                                  copy=False, axis=1,
@@ -168,7 +168,6 @@ def write_data_tables(writer, data_tables, formats):
                                                  'multi_range': ' '.join(full_datas)})
 
 
-
 def excel_writer(path_to_file, well_name, common_tables, data_tables):
     # Записываем в фаил и форматируем как надо, пока фаил открыт.
     file_name = well_name.replace(',', '').replace(' ', '_') + '.xlsx'
@@ -184,8 +183,8 @@ def excel_writer(path_to_file, well_name, common_tables, data_tables):
             'date_format': book.add_format({'align': 'left'})
         }
 
-        write_first_sheet(writer, common_tables)
         write_data_tables(writer, data_tables, formats)
+        write_param_sheet(writer, common_tables)
 
 
 def param_for_customer(server_name, well_name, list_of_records, path_to_file='./'):
@@ -226,8 +225,8 @@ def param_for_customer(server_name, well_name, list_of_records, path_to_file='./
 
 def main():
     # todo Это будет инпут от пользователя.
-    well_name = 'Восточно-Мессояхское к.103, скв.775'
-    project = 'h7'
+    well_name = 'Усинское к. 5020, 7365'
+    project = 'bke'
     list_of_records = [1, 11, 12]
     # ---------------------------------------------------------------
     list_of_records.sort()
