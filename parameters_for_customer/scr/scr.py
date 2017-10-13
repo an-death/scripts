@@ -16,6 +16,34 @@ RECORDS_COMPREHENSION = {
 }
 
 
+def get_project_configs(prj_shortcut):
+    # --------------------------------------------------------------
+    # Создаём движок для подключения к базе соответствующего проекта
+    server = Project(prj_shortcut)
+    server.fill()  # Загружаем конфиги
+    server.sql_engine(loging=True)  # Создаём SqlAlchemy движок
+    server.sql_session_maker(server.engine)
+
+    return server
+
+
+def chek_well(session: object, well_name: str, records: list):
+    select_well = 'select name, wellbore_id from WITS_WELL where name="{}"'.format(well_name)
+    select_records = 'select * from WITS_RECORD{r}_IDX_{w} where id >0 limit 1'
+    con = session.connection()
+    well = con.execute(select_well).fetchone()
+    if not well:
+        exit('Скважина "{}" найдена'.format(well_name))
+    for r in records:
+        rec = select_records.format(r=r, w=well.wellbore_id)
+        try:
+            con.execute(rec)
+        except Exception:
+            print('Индесной таблицы для рекорда: {} и скважины: {} Не найдено!\nУдаляем рекорд из списка'.format(r,
+                                                                                                                 well.name))
+            records.pop(records.index(r))
+
+
 def get_actc(connect):
     sql_query_actc = 'select id, name_ru from WITS_ACTIVITY_TYPE'
     with connect as cn:
