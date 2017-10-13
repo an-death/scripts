@@ -5,6 +5,7 @@ from collections import OrderedDict
 # from xlsxwriter import worksheet
 from xlsxwriter.utility import xl_range, xl_col_to_name
 
+from argparser import parsargs
 from classes import Project, Well
 
 TEST = False
@@ -114,14 +115,14 @@ def return_work_table(connect, param_table, actc_table, record_id, wellbore_id):
 
 def write_param_sheet(writer, common_tables_dict):
     sheet_name = 'Параметры'
+    tables_count = len(common_tables_dict)
     full_param_table = pd.concat([common_tables_dict[key] for key in common_tables_dict],
                                  copy=False, axis=1,
                                  join_axes=[common_tables_dict['record_1'].index])
-
-    full_param_table.to_excel(writer, sheet_name, index=False, header=['Мнем', 'Юнит', 'Параметр'] * 3
+    full_param_table.to_excel(writer, sheet_name, index=False, header=['Мнем', 'Юнит', 'Параметр'] * tables_count
                               )
     sheet = writer.sheets[sheet_name]
-    for i in range(2, len(full_param_table.columns), 3):
+    for i in range(2, len(full_param_table.columns), tables_count):
         sheet.set_column(':'.join([xl_col_to_name(i)] * 2), 28)
 
 
@@ -187,13 +188,8 @@ def excel_writer(path_to_file, well_name, common_tables, data_tables):
         write_param_sheet(writer, common_tables)
 
 
-def param_for_customer(server_name, well_name, list_of_records, path_to_file='./'):
-    # --------------------------------------------------------------
-    # Создаём движок для подключения к базе соответствующего проекта
-    server = Project(server_name)
-    server.fill()  # Загружаем конфиги
-    server.sql_engine(loging=True)  # Создаём SqlAlchemy движок
-    server.sql_session_maker(server.engine)
+def param_for_customer(prj, well_name, list_of_records, path_to_file='./'):
+    server = prj
     well = Well(well_name, server)
     # --------------------------------------------------------------
 
@@ -224,19 +220,25 @@ def param_for_customer(server_name, well_name, list_of_records, path_to_file='./
         return tables
 
 
-def main():
+def main(project, well_name, list_of_records):
     # todo Это будет инпут от пользователя.
-    well_name = 'Усинское к. 5020, 7365'
-    project = 'bke'
-    list_of_records = [1, 11, 12]
+    # well_name = 'Усинское к. 5020, 7365'
+    # project = 'bke'
+    # list_of_records = [1, 11, 12]
     # ---------------------------------------------------------------
     list_of_records.sort()
     # ---------------------------------------------------------------
-    param_for_customer(server_name=project,
+    project = get_project_configs(project)
+    ses = project.session()
+    chek_well(ses, well_name, list_of_records)
+    param_for_customer(prj=project,
                        well_name=well_name,
                        list_of_records=list_of_records,
                        path_to_file='./tables')
 
 
 if __name__ == '__main__':
-    main()
+    project, well_name, list_of_records = parsargs()
+    if project is None or well_name is None:
+        exit('Введите шорткат сервера и имя скважины! \nИскользуйте ключ "-h" для вывода помощи')
+    main(project, well_name, list_of_records)
