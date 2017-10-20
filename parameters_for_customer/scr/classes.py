@@ -7,8 +7,7 @@ from sqlalchemy.orm import sessionmaker
 path_to_config_file = '/home/as/Документы/scr/.bash_connection_info.sh'
 CONFIGS = path.Path(path_to_config_file)
 
-
-class MetaProject(object):
+class MetaProject():
     """Meta info for Projects
     """
 
@@ -82,7 +81,7 @@ class MetaProject(object):
                     attribs.append(list_of_attrs)
         attribs = sum(attribs, [])
         for attrib in attribs:
-            k, v = attrib.split('=')
+            k, v = attrib.split('=', 1)
             dict_of_attr[k.strip()] = v.strip()
         # _default_
         _def_str = 'unspecified'.upper()
@@ -181,7 +180,7 @@ class Well():
 
 
 def test():
-    prj_list = ['bke', 'nova', 'st', 'ggr', 'igs', 'eriell', 'gk']
+    prj_list = ['cb', 'bke', 'nova', 'st', 'ggr', 'igs', 'eriell', 'gk']
     for prj in prj_list:
         p = Project(prj)
         p.fill()

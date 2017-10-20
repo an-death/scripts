@@ -1,6 +1,7 @@
 import pandas as pd
 # import os
 # import json
+import datetime
 from collections import OrderedDict
 # from xlsxwriter import worksheet
 from xlsxwriter.utility import xl_range, xl_col_to_name
@@ -27,21 +28,23 @@ def get_project_configs(prj_shortcut):
     return server
 
 
-def chek_well(session: object, well_name: str, records: list):
+def check_well(session: object, well_name: str, records: list):
     select_well = 'select name, wellbore_id from WITS_WELL where name="{}"'.format(well_name)
     select_records = 'select * from WITS_RECORD{r}_IDX_{w} where id >0 limit 1'
     con = session.connection()
     well = con.execute(select_well).fetchone()
     if not well:
         exit('Скважина "{}" найдена'.format(well_name))
-    for r in records:
-        rec = select_records.format(r=r, w=well.wellbore_id)
+    for record in records:
+        rec = select_records.format(r=record, w=well.wellbore_id)
         try:
             con.execute(rec)
         except Exception:
-            print('Индесной таблицы для рекорда: {} и скважины: {} Не найдено!\nУдаляем рекорд из списка'.format(r,
-                                                                                                                 well.name))
-            records.pop(records.index(r))
+            print('Индесной таблицы для рекорда: {} и скважины: {} Не найдено!\nУдаляем рекорд из списка...'.format(
+                record,
+                well.name)
+            )
+            records.pop(records.index(record))
 
 
 def get_actc(connect):
@@ -73,10 +76,17 @@ def get_param_table(connect, record_id, source_type_id):
 
 def get_data_tables(connect, record_id, wellbore_id):
     # todo Переработать запросы и обсчитывать макс значения для каждого параметра для кажого ACTC на стороне базы
-    sql_query_idx = 'select id,date,depth from WITS_RECORD{}_IDX_{}'.format(record_id, wellbore_id)
-    sql_query_data = 'select idx_id as id, mnemonic, value from WITS_RECORD{}_DATA_{}'.format(record_id, wellbore_id)
+    date1 = datetime.datetime.now()
+    diff = datetime.timedelta(weeks=2)
+    date2 = date1 - diff
+    sql_query_idx = 'select id,date,depth from WITS_RECORD{}_IDX_{} where ' \
+                    'date between "{:%Y-%m-%d %H:%M:%S}" and "{:%Y-%m-%d %H:%M:%S}" '. \
+        format(record_id, wellbore_id, date2, date1)
     with connect as cn:
         idx_table = pd.read_sql_query(sql_query_idx, cn, index_col='id', parse_dates=['date'])
+        sql_query_data = 'select idx_id as id, mnemonic, value from WITS_RECORD{}_DATA_{} ' \
+                         'where idx_id in ({})'.\
+            format(record_id, wellbore_id, sql_query_idx.replace(',date,depth', ''))
         data_table = pd.read_sql_query(sql_query_data, cn)
     # Разворачиваем таблицу, делая колонками мнемоники
     data_table = data_table.pivot(index='id', columns='mnemonic', values='value')
@@ -249,16 +259,19 @@ def param_for_customer(prj, well_name, list_of_records, path_to_file='./'):
 
 
 def main(project, well_name, list_of_records):
-    # todo Это будет инпут от пользователя.
-    # well_name = 'Усинское к. 5020, 7365'
-    # project = 'bke'
-    # list_of_records = [1, 11, 12]
+    # todo Прикрутить ключ -v --verbose для дебага SQLAlchemy
+    # todo Напилиты красивого вывода для скрипта
+    # todo Вынести конфиг отдельно
+    # todo Улучшить работу с памятью
+    # todo Прикрутить многопоточность
+    # todo Размапить таблицы и переписать всё на sqlalchemy орм
+    # todo Добаувить logger
     # ---------------------------------------------------------------
     list_of_records.sort()
     # ---------------------------------------------------------------
     project = get_project_configs(project)
     ses = project.session()
-    chek_well(ses, well_name, list_of_records)
+    check_well(ses, well_name, list_of_records)
     param_for_customer(prj=project,
                        well_name=well_name,
                        list_of_records=list_of_records,
