@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 import re
-import path
+
 import paramiko
+import path
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
 
 path_to_config_file = '/home/as/Документы/scr/.bash_connection_info.sh'
 CONFIGS = path.Path(path_to_config_file)
@@ -61,7 +62,7 @@ class MetaProject(object):
         return '\n'.join(prj)
 
     def __repr__(self):
-        return MetaProject.__str__(self)
+        return '<{}({})'.format(self.name, ','.join([self.host, self.port, self.login, self.password]))
 
     def configurate(self):
         """
@@ -138,8 +139,7 @@ class MetaProject(object):
             b_name=bname
         )
         self.engine = create_engine(engine_str, convert_unicode=True, echo=loging)
-        # self.engine = engine
-        # return self.engine
+        return self.engine
 
     def _ssh_connect(self):
         """
@@ -169,9 +169,10 @@ class MetaProject(object):
         else:
             return self.shortcuts
 
-    def sql_session_maker(self):
-        self.session = Session(bind=self.engine)
-        return self.session.connection()
+    def sql_sessionmaker(self):
+        self.session = sessionmaker()
+        self.session.configure(bind=self._sql_engine())
+        return self.session()
 
 class Project(MetaProject):
     def info(self):
