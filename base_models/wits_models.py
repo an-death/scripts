@@ -1,7 +1,6 @@
-
-from sqlalchemy import Column, Integer, String, DateTime, TIMESTAMP, DECIMAL, ForeignKey, Text, BLOB
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, BLOB
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
@@ -54,7 +53,7 @@ class Wits_user(Base, Meta):
 class Wits_user_log(Base, Meta):
     __tablename__ = 'WITS_USER_LOG'
 
-    user_id = Column('user_id', Integer)
+    user_id = Column('user_id', Integer, primary_key=True)
     event_id = Column('event_id', Integer, ForeignKey('WITS_USER_EVENT.id'))
     date = Column('date', Integer)
     wellbore_id = Column('wellbore_id', Integer)
@@ -65,6 +64,6 @@ class Wits_user_log(Base, Meta):
 class Wits_user_event(Base, Meta):
     __tablename__ = 'WITS_USER_EVENT'
 
-    id = Column('id', Integer)
+    id = Column('id', Integer, primary_key=True)
     name_ru = Column('name_ru', String(255))
     name_en = Column('name_en', String(255))
