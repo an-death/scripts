@@ -5,6 +5,7 @@ import datetime
 from collections import OrderedDict
 # from xlsxwriter import worksheet
 from xlsxwriter.utility import xl_range, xl_col_to_name
+from sqlalchemy.exc import ProgrammingError
 
 from argparser import parsargs
 from classes import Project, Well
@@ -39,7 +40,7 @@ def check_well(session: object, well_name: str, records: list):
         rec = select_records.format(r=record, w=well.wellbore_id)
         try:
             con.execute(rec)
-        except Exception:
+        except ProgrammingError:
             print('Индесной таблицы для рекорда: {} и скважины: {} Не найдено!\nУдаляем рекорд из списка...'.format(
                 record,
                 well.name)
@@ -76,17 +77,29 @@ def get_param_table(connect, record_id, source_type_id):
 
 def get_data_tables(connect, record_id, wellbore_id):
     # todo Переработать запросы и обсчитывать макс значения для каждого параметра для кажого ACTC на стороне базы
+
     date1 = datetime.datetime.now()
     diff = datetime.timedelta(weeks=2)
     date2 = date1 - diff
-    sql_query_idx = 'select id,date,depth from WITS_RECORD{}_IDX_{} where ' \
-                    'date between "{:%Y-%m-%d %H:%M:%S}" and "{:%Y-%m-%d %H:%M:%S}" '. \
+    sql_query_idx = 'select id, ' \
+                    'FROM_UNIXTIME(' \
+                    'UNIX_TIMESTAMP(' \
+                    'CONVERT_TZ(' \
+                    'date, "+00:00", (select logs_offset from WITS_WELL where wellbore_id={wb_id})' \
+                    ')) - (select timeshift from WITS_WELL where wellbore_id={wb_id})) as date,' \
+                    'depth ' \
+                    'from WITS_RECORD{r_id}_IDX_{wb_id} ' \
+                    'where date between "{d2:%Y-%m-%d %H:%M:%S}" and "{d1:%Y-%m-%d %H:%M:%S}" '. \
+        format(d2=date2, d1=date1, r_id=record_id, wb_id=wellbore_id, )
+
+    sql_query_idx_old = 'select id,date,depth from WITS_RECORD{}_IDX_{} where ' \
+                        'date between "{:%Y-%m-%d %H:%M:%S}" and "{:%Y-%m-%d %H:%M:%S}" '. \
         format(record_id, wellbore_id, date2, date1)
     with connect as cn:
         idx_table = pd.read_sql_query(sql_query_idx, cn, index_col='id', parse_dates=['date'])
         sql_query_data = 'select idx_id as id, mnemonic, value from WITS_RECORD{}_DATA_{} ' \
-                         'where idx_id in ({})'.\
-            format(record_id, wellbore_id, sql_query_idx.replace(',date,depth', ''))
+                         'where idx_id in ({})'. \
+            format(record_id, wellbore_id, sql_query_idx_old.replace(',date,depth', ''))
         data_table = pd.read_sql_query(sql_query_data, cn)
     # Разворачиваем таблицу, делая колонками мнемоники
     data_table = data_table.pivot(index='id', columns='mnemonic', values='value')
@@ -266,6 +279,7 @@ def main(project, well_name, list_of_records):
     # todo Прикрутить многопоточность
     # todo Размапить таблицы и переписать всё на sqlalchemy орм
     # todo Добаувить logger
+    # todo Испольвввать время часового пояса объекта, а еМ МСК
     # ---------------------------------------------------------------
     list_of_records.sort()
     # ---------------------------------------------------------------
