@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 Base = declarative_base()
 
 
-class Meta():
+class Meta:
     __tablename__ = None
     def __repr__(self):
         return ('<{}({})>'.format(self.__tablename__, ','.join(
