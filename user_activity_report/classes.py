@@ -46,8 +46,9 @@ class User:
     def logout(self):
         self.logged = False
 
-    def sessions(self):
-        return self._sessions
+    def sessions(self, ses):
+        # todo Реализовать интерфейс для start() stop() store() ?
+        return self._sessions[ses]
 
     def session_start(self, session, dt):
         pass
@@ -55,14 +56,45 @@ class User:
     def session_stop(self, session, dt):
         pass
 
+    def get_active_session(self):
+        session = [session for session in self._sessions if session.state()]
+        assert len(session) == 1, 'Активной дожна быть только одна сессия! Найдено актиных сессий ' \
+                                  '\n{} ' \
+                                  '\nДля пользователя: ' \
+                                  '\n{}'.format(session, self.info())
+        return session[0]
+
+    def close_active_session(self, dt):
+        active_session = self.get_active_session()
+        last_date = active_session.get_cached_date()
+        active_session.close(last_date)
+        self.logout()
+
 
 class Session:
-    def __init__(self):
+    def __init__(self, data):
+        self.ses = data
         self.total_time = 0
         self.total_time_video = 0
         self.planshet = defaultdict(int)
-        self.open = False
+        self.open = True
+        self.cached_data = []
 
+    def close(self, dt):
+        pass
+
+    def open(self, dt):
+        pass
+
+    def state(self):
+        """
+        Возвращает True/False для открытой и закрытой сесси
+        :return: Bool 
+        """
+        return self.open
+
+    def get_cached_date(self):
+        return self.cached_data[-1]
 
 class Dt:
     formats = {'date': '%Y-%m-%d', 'datetime': '%Y-%m-%d %H:%M:%S'}
