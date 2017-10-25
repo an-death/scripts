@@ -9,7 +9,7 @@ class Meta():
     __tablename__ = None
     def __repr__(self):
         return ('<{}({})>'.format(self.__tablename__, ','.join(
-            str(atr) for _, atr in self.__class__.__dict__.items() if '__' not in _ and _ != '_sa_class_manager')))
+            str(atr) for _, atr in self.__class__.__dict__.items() if not _.startswith('_'))))
 
 class Wits_network(Base, Meta):
     __tablename__ = 'WITS_NETWORK'
@@ -53,13 +53,14 @@ class Wits_user(Base, Meta):
 class Wits_user_log(Base, Meta):
     __tablename__ = 'WITS_USER_LOG'
 
-    user_id = Column('user_id', Integer, primary_key=True)
+    user_id = Column('user_id', Integer, ForeignKey('WITS_USER.id'), primary_key=True)
     event_id = Column('event_id', Integer, ForeignKey('WITS_USER_EVENT.id'))
     date = Column('date', Integer)
     wellbore_id = Column('wellbore_id', Integer)
     data = Column('data', Text)
 
     event = relationship('Wits_user_event', backref='events')
+    sessions = relationship('Wits_user', backref='sessions')
 
 class Wits_user_event(Base, Meta):
     __tablename__ = 'WITS_USER_EVENT'
