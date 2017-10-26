@@ -35,7 +35,7 @@ class Wits_user(Base, Meta):
     email = Column('email', String(255))
     witsml_user = Column('witsml_user', String(32))
     witsml_password = Column('witsml_password', String(32))
-    group_id = Column('group_id', Integer)
+    group_id = Column('group_id', Integer, ForeignKey('WITS_USER_GROUP.id'))
     role = Column('role', Integer)
     session = Column('session', String(128))
     last_name = Column('last_name', String(32))
@@ -48,12 +48,13 @@ class Wits_user(Base, Meta):
     removed = Column('removed', Integer)
 
     network = relationship("Wits_network", backref="users")
+    group = relationship('Wits_user_group', backref='users')
 
 
 class Wits_user_log(Base, Meta):
     __tablename__ = 'WITS_USER_LOG'
 
-    user_id = Column('user_id', Integer, ForeignKey('WITS_USER.id'), primary_key=True)
+    user_id = Column('user_id', Integer, ForeignKey('WITS_USER.id'), primary_key=True, autoincrement=True)
     event_id = Column('event_id', Integer, ForeignKey('WITS_USER_EVENT.id'))
     date = Column('date', Integer)
     wellbore_id = Column('wellbore_id', Integer)
@@ -68,3 +69,11 @@ class Wits_user_event(Base, Meta):
     id = Column('id', Integer, primary_key=True)
     name_ru = Column('name_ru', String(255))
     name_en = Column('name_en', String(255))
+
+
+class Wits_user_group(Base, Meta):
+    __tablename__ = 'WITS_USER_GROUP'
+
+    id = Column('id', Integer, primary_key=True, autoincrement=True)
+    network_id = Column('network_id', Integer, ForeignKey('WITS_NETWORK.id'))
+    name = Column('name', String(255))
