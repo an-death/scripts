@@ -13,6 +13,8 @@ class User:
         self.patr_name = self.param.patr_name
         self._sessions = defaultdict(Session)
         self.logged = False
+        self.total_video_time = 0
+        self.total_monitoring_time = 0
         # self.id = id
         # self.network_id = user.network_id
         # self.name = user.name
@@ -70,8 +72,9 @@ class User:
         active_session.stop(dt)
         self.logout()
 
-    def session_store(self, session, ):
-        pass
+    def session_store(self, session: str, args: str):
+        assert self.sessions(session).status(), 'Текущая сессия закрыта.\n{}\nНе можем добавить запись в сессию!'
+        self.sessions(session).store(args)
 
     def get_active_session(self):
         session = [session for session in self._sessions if session.status()]
@@ -87,6 +90,12 @@ class User:
         if not dt:
             dt = active_session.get_cached_date()
         self.session_stop(active_session, dt)
+
+    def calculate_total(self):
+        for session in self._sessions:
+            self.total_video_time += session.total_time_video
+            self.total_monitoring_time += session.total_time
+        return self.total_monitoring_time, self.total_video_time
 
 
 class Session:
@@ -108,7 +117,7 @@ class Session:
         self.cached_data['start_session'] = dt
         self.open = True
 
-    def store(self, args):
+    def store(self, args: str):
         def calculate(start, stop):
             total = stop - start
             self.total_time_video += total

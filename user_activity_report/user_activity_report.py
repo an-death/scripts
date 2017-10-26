@@ -77,8 +77,8 @@ def main(u: USERS, p: PROJECT):
             # user.session[data].start(date)
             user.session_start(data, date)
         elif event_id == event_dict['User action']:
-            # active_session, args = data.split('!')
-            pass
+            active_session, args = data.split('!')
+            user.session_store(active_session, args)
 
 
 if __name__ == '__main__':
