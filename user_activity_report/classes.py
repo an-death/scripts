@@ -94,12 +94,11 @@ class Session:
         self.planshet = defaultdict(int)
         self.open = False
         self.cached_data = {'start_session': 0, 'last': 0}
-        self.storage = {'all': {}, 'video': {'total': 0}, 'total': 0}
+        self.storage = {'all': {'total': 0}, 'video': {'start': 0, 'stop': 0}}
 
     def close(self, dt):
         self.cached_data['last'] = dt
         self.total_time = self.cached_data['last'] - self.cached_data['start_session']
-        self.total_time_video = self.storage['video']['total']
         self.open = False
 
     def open(self, dt):
@@ -107,7 +106,25 @@ class Session:
         self.open = True
 
     def store(self, args):
-        pass
+        def calculate(start, stop):
+            total = stop - start
+            self.total_time_video += total
+            stop, start = 0, 0
+
+        time, action, form = args.split('=')
+        dt = Dt(time)
+        if form.startswith('Camera'):
+            start = self.storage['video']['start']
+            stop = self.storage['video']['stop']
+            if action == 'fopen' and not start:
+                start = dt
+            elif action == 'fclose' and start:
+                calculate(start, dt)
+            elif action == 'fopen' and not stop:
+                calculate(start, dt)
+                start = dt
+                # Остальные формы игнорим.
+                # todo сделать подсчёт по всем формам
 
     def status(self):
         """
