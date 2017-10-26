@@ -98,8 +98,9 @@ class Session:
 
     def close(self, dt):
         self.cached_data['last'] = dt
+        self.total_time = self.cached_data['last'] - self.cached_data['start_session']
+        self.total_time_video = self.storage['video']['total']
         self.open = False
-        pass
 
     def open(self, dt):
         self.cached_data['start_session'] = dt
@@ -118,6 +119,15 @@ class Session:
     def get_cached_date(self):
         return self.cached_data['last'] or self.cached_data['start_session']
 
+    def return_total_time(self):
+        return self.total_time
+
+    def return_total_video_time(self):
+        return self.total_time_video
+
+    def session_period(self):
+        return '{} - {}'.format(self.cached_data['start_session'], self.cached_data['last'])
+
 class Dt:
     formats = {'date': '%Y-%m-%d', 'datetime': '%Y-%m-%d %H:%M:%S'}
 
@@ -133,7 +143,7 @@ class Dt:
                 self.dt = datetime.strptime(dt, Dt.formats['date']).timestamp()
 
     def __str__(self):
-        return str(Dt.to_timestamp(self))
+        return str(Dt.to_string(self))
 
     def __repr__(self):
         return Dt.to_string(self)
