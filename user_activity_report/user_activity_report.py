@@ -2,11 +2,10 @@
 
 from collections import defaultdict
 
-from classes import User, Dt
+from classes import User, Dt, get_connect_to_db
 
 from base_models.wits_models import (Wits_user_log as log,
                                      Wits_user_event as event)
-from projects import project
 
 # todo Сделать вводом из формы или cli
 FROM = '2017-08-31'
@@ -14,12 +13,6 @@ TO = '2017-10-01'
 PROJECT = 'bke'
 ######################################################################
 USERS = defaultdict(User)
-
-
-def get_connect_to_db(project_name: str):
-    bke = project.Project(project_name)
-    bke.configurate()
-    return bke.sql_sessionmaker()
 
 
 def get_events_table(session):
