@@ -47,28 +47,43 @@ class User:
         self.logged = False
 
     def sessions(self, ses):
-        # todo Реализовать интерфейс для start() stop() store() ?
         return self._sessions[ses]
 
     def session_start(self, session, dt):
-        pass
+        try:
+            assert not self.sessions(session).status(), 'Пытаемся открыть уже открутую сессию! {}'.format(session)
+        except KeyError:
+            # Если сесси нет, мы её создаём
+            self.sessions(session)
+        self.sessions(session).open(dt)
+        self.login()
 
     def session_stop(self, session, dt):
-        pass
+        active_session = self.get_active_session()
+        assert active_session is self.sessions(session), 'Сессия на закрытие не соответствует активной сессии\n' \
+                                                         'user: {}' \
+                                                         'active: {}\n' \
+                                                         'session: {}\n' \
+                                                         ''.format(self.info(), active_session, self.sessions(session))
+        assert active_session.status(), 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(session)
+        # todo ^ Описать решние коллизий в таком случае ^
+        active_session.stop(dt)
+        self.logout()
 
     def get_active_session(self):
-        session = [session for session in self._sessions if session.state()]
-        assert len(session) == 1, 'Активной дожна быть только одна сессия! Найдено актиных сессий ' \
+        session = [session for session in self._sessions if session.status()]
+        assert len(session) == 1, 'Активной дожна быть только одна сессия! Найдено актиных сессий: ' \
                                   '\n{} ' \
                                   '\nДля пользователя: ' \
                                   '\n{}'.format(session, self.info())
-        return session[0]
+        # todo ^ Описать решние коллизий в таком случае ^
+        return session[-1]
 
-    def close_active_session(self, dt):
+    def close_active_session(self, dt=None):
         active_session = self.get_active_session()
-        last_date = active_session.get_cached_date()
-        active_session.close(last_date)
-        self.logout()
+        if not dt:
+            dt = active_session.get_cached_date()
+        self.session_stop(active_session, dt)
 
 
 class Session:
@@ -77,16 +92,23 @@ class Session:
         self.total_time = 0
         self.total_time_video = 0
         self.planshet = defaultdict(int)
-        self.open = True
-        self.cached_data = []
+        self.open = False
+        self.cached_data = {'start_session': 0, 'last': 0}
+        self.storage = {'all': {}, 'video': {'total': 0}, 'total': 0}
 
     def close(self, dt):
+        self.cached_data['last'] = dt
+        self.open = False
         pass
 
     def open(self, dt):
+        self.cached_data['start_session'] = dt
+        self.open = True
+
+    def store(self, args):
         pass
 
-    def state(self):
+    def status(self):
         """
         Возвращает True/False для открытой и закрытой сесси
         :return: Bool 
@@ -94,7 +116,7 @@ class Session:
         return self.open
 
     def get_cached_date(self):
-        return self.cached_data[-1]
+        return self.cached_data['last'] or self.cached_data['start_session']
 
 class Dt:
     formats = {'date': '%Y-%m-%d', 'datetime': '%Y-%m-%d %H:%M:%S'}
@@ -115,6 +137,11 @@ class Dt:
 
     def __repr__(self):
         return Dt.to_string(self)
+
+    def __sub__(self, other):
+        if isinstance(other, Dt):
+            other = other.dt
+        return self.dt - other
 
     def to_string(self):
         return datetime.fromtimestamp(self.dt).strftime(Dt.formats['datetime'])
