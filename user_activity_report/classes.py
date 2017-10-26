@@ -70,6 +70,9 @@ class User:
         active_session.stop(dt)
         self.logout()
 
+    def session_store(self, session, ):
+        pass
+
     def get_active_session(self):
         session = [session for session in self._sessions if session.status()]
         assert len(session) == 1, 'Активной дожна быть только одна сессия! Найдено актиных сессий: ' \
@@ -145,19 +148,26 @@ class Session:
     def session_period(self):
         return '{} - {}'.format(self.cached_data['start_session'], self.cached_data['last'])
 
+
 class Dt:
     formats = {'date': '%Y-%m-%d', 'datetime': '%Y-%m-%d %H:%M:%S'}
 
     def __init__(self, dt):
         if isinstance(dt, int):
+            if len(str(dt)) > 10:
+                dt = int(str(dt)[:10])
             self.dt = dt
         if isinstance(dt, datetime):
             self.dt = int(datetime.timestamp(dt))
         if isinstance(dt, str):
-            if len(dt) > 10:
+            if dt.isdigit():
+                self.dt = int(dt[:10])
+            elif len(dt) > 10:
                 self.dt = datetime.strptime(dt, Dt.formats['datetime']).timestamp()
             else:
                 self.dt = datetime.strptime(dt, Dt.formats['date']).timestamp()
+        if isinstance(dt, Dt):
+            self.dt = dt.to_timestamp()
 
     def __str__(self):
         return str(Dt.to_string(self))
