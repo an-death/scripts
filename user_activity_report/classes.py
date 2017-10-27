@@ -37,8 +37,12 @@ class User:
         # self.tel = user.tel
 
     def __str__(self):
-        return '{}'.format(
-            '\n'.join('{}:  {} '.format(k, v) for k, v in self.param.__dict__.items() if not k.startswith('_')))
+        # return '{}'.format(
+        #     '\n'.join('{}:  {} '.format(k, v) for k, v in self.param.__dict__.items() if not k.startswith('_')))
+        return self.__repr__()
+
+    def __repr__(self):
+        return '{}.{}'.format(self.param.name, self.logged)
 
     def fio(self):
         return ' '.join(str(i) for i in [self.last_name, self.first_name, self.patr_name] or [self.param.name] if i)
@@ -81,14 +85,14 @@ class User:
         assert active_session.status(), 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(session)
         # todo ^ Описать решние коллизий в таком случае ^
         args_to_close_planshet = '{}=fclose='.format(dt)
-        self.session_store(session, args_to_close_planshet)
+        self.session_store(session, dt, args_to_close_planshet)
         active_session.close(dt)
         self.logout()
 
-    def session_store(self, session: str, args: str):
+    def session_store(self, session: str, date, args: str):
         assert self.sessions(
             session).status(), 'Текущая сессия закрыта.\n{}\nНе можем добавить запись в сессию!'.format(session)
-        self.sessions(session).store(args)
+        self.sessions(session).store(date, args)
 
     def get_active_session(self):
         session = [session for session in self._sessions.values() if session.status()]
@@ -134,21 +138,33 @@ class Session:
 
     def close(self, dt):
         self.cached_data['last'] = dt
-        self.total_time = self.cached_data['last'] - self.cached_data['start_session']
+        last = self.cached_data['last']
+        start = self.cached_data['start_session']
+        assert last >= start, 'В результате вычитания получился отрицательный результат,' \
+                              ' что не возможно для времени!\n {} > {} \nsession: {}'.format(last, start, self.ses)
+        self.total_time += last - start
         self.active = False
 
     def open(self, dt):
         self.cached_data['start_session'] = dt
         self.active = True
 
-    def store(self, args: str):
-        def calculate(start, stop):
-            total = stop - start
+    def store(self, dt, args: str):
+        def calculate(start, last):
+            assert last >= start, 'В результате вычитания получился отрицательный результат,' \
+                                  ' что не возможно для времени!\n {} > {} \nsession: {}'.format(last, start, self.ses)
+            total = last - start
             self.total_time_video += total
             self.storage['video']['stop'], self.storage['video']['start'] = 0, 0
 
-        time, action, form = args.split('=')
-        dt = Dt(time)
+        time, action, *form = args.split('=')
+        # todo Придумать решение для это коллизии!!
+        # В информации о сессии хранится время большее, чем в самом логе
+        # time = Dt(time)
+        # if not time.__ge__(self.storage['video']['start']):
+        #     dt = time
+        #####################################################################
+        form = ''.join(form)
         if not form: form = 'Camera'  # для закрытия всех планшетов при закрытии сессии
         if form.startswith('Camera'):
             start = self.storage['video']['start']
@@ -162,6 +178,7 @@ class Session:
                 self.storage['video']['start'] = dt
                 # Остальные формы игнорим.
                 # todo сделать подсчёт по всем формам
+        self.cached_data['last'] = dt
 
     def status(self):
         """
@@ -187,27 +204,31 @@ class Dt:
     formats = {'date': '%Y-%m-%d', 'datetime': '%Y-%m-%d %H:%M:%S'}
 
     def __init__(self, dt):
-        if isinstance(dt, int):
+        if isinstance(dt, Dt):
+            self.dt = dt.to_timestamp()
+        elif isinstance(dt, int):
             if len(str(dt)) > 10:
                 dt = int(str(dt)[:10])
             self.dt = dt
-        if isinstance(dt, datetime):
+        elif isinstance(dt, datetime):
             self.dt = int(datetime.timestamp(dt))
-        if isinstance(dt, str):
+        elif isinstance(dt, str):
             if dt.isdigit():
                 self.dt = int(dt[:10])
             elif len(dt) > 10:
                 self.dt = datetime.strptime(dt, Dt.formats['datetime']).timestamp()
+                self.dt = int(self.dt)
             else:
                 self.dt = datetime.strptime(dt, Dt.formats['date']).timestamp()
-        if isinstance(dt, Dt):
-            self.dt = dt.to_timestamp()
+                self.dt = int(self.dt)
+        else:
+            exit('Не получилось распознать dt {}, type({})'.format(dt, type(dt)))
 
     def __str__(self):
-        return str(Dt.to_string(self))
+        return self.to_string()
 
     def __repr__(self):
-        return Dt.to_string(self)
+        return self.__str__()
 
     def __float__(self):
         return float(self.dt)
@@ -220,9 +241,14 @@ class Dt:
     def __add__(self, other):
         if isinstance(other, Dt):
             other = other.dt
-        if isinstance(other, str) and other.isdigit():
+        elif isinstance(other, str) and other.isdigit():
             other = int(other)
         return Dt(self.dt + other)
+
+    def __ge__(self, other):
+        if isinstance(other, Dt):
+            other = other.dt
+        return self.dt >= other
 
     def to_string(self):
         return datetime.fromtimestamp(self.dt).strftime(Dt.formats['datetime'])
