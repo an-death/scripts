@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from base_models.wits_models import Wits_user as users
 from projects import project
@@ -19,8 +19,8 @@ class User:
         self.patr_name = self.param.patr_name
         self._sessions = {}
         self.logged = False
-        self.total_video_time = 0
-        self.total_monitoring_time = 0
+        self.total_video_time = Dt(0)
+        self.total_monitoring_time = Dt(0)
         self.collisions = []
         # self.id = id
         # self.network_id = user.network_id
@@ -40,11 +40,13 @@ class User:
         return '{}'.format(
             '\n'.join('{}:  {} '.format(k, v) for k, v in self.param.__dict__.items() if not k.startswith('_')))
 
+    def fio(self):
+        return ' '.join(str(i) for i in [self.last_name, self.first_name, self.patr_name] or [self.param.name] if i)
+
     def info(self):
         return '{id}\n{org}\n{pos} \n{name}'.format(id=self.id,
                                                     pos=self.param.position,
-                                                    name=' '.join(str(i) for i in
-                                                                  [self.last_name, self.first_name, self.patr_name]),
+                                                    name=self.fio(),
                                                     org=self.param.organization)
 
     def is_logged(self):
@@ -71,13 +73,15 @@ class User:
     def session_stop(self, session: str, dt):
         active_session = self.get_active_session()
         new_session = self.sessions(session)
-        assert active_session == new_session, 'Сессия на закрытие не соответствует активной сессии\n' \
+        assert active_session is new_session, 'Сессия на закрытие не соответствует активной сессии\n' \
                                               'user: {}\n' \
                                               'active: {}\n' \
                                                          'session: {}\n' \
                                                          ''.format(self.info(), active_session, self.sessions(session))
         assert active_session.status(), 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(session)
         # todo ^ Описать решние коллизий в таком случае ^
+        args_to_close_planshet = '{}=fclose='.format(dt)
+        self.session_store(session, args_to_close_planshet)
         active_session.close(dt)
         self.logout()
 
@@ -105,14 +109,12 @@ class User:
         for session in self._sessions.values():
             self.total_video_time += session.total_time_video
             self.total_monitoring_time += session.total_time
-        return self.total_monitoring_time, self.total_video_time
-
 
 class Session:
     def __init__(self, data):
         self.ses = data
-        self.total_time = 0
-        self.total_time_video = 0
+        self.total_time = Dt(0)
+        self.total_time_video = Dt(0)
         self.planshet = defaultdict(int)
         self.active = False
         self.cached_data = {'start_session': 0, 'last': 0}
@@ -147,7 +149,8 @@ class Session:
 
         time, action, form = args.split('=')
         dt = Dt(time)
-        if form.startswith('Camera'):
+
+        if form.startswith('Camera') or not form:
             start = self.storage['video']['start']
             stop = self.storage['video']['stop']
             if action == 'fopen' and not start:
@@ -206,10 +209,20 @@ class Dt:
     def __repr__(self):
         return Dt.to_string(self)
 
+    def __float__(self):
+        return float(self.dt)
+
     def __sub__(self, other):
         if isinstance(other, Dt):
             other = other.dt
-        return self.dt - other
+        return Dt(self.dt - other)
+
+    def __add__(self, other):
+        if isinstance(other, Dt):
+            other = other.dt
+        if isinstance(other, str) and other.isdigit():
+            other = int(other)
+        return Dt(self.dt + other)
 
     def to_string(self):
         return datetime.fromtimestamp(self.dt).strftime(Dt.formats['datetime'])
@@ -219,3 +232,6 @@ class Dt:
 
     def to_request(self):
         return self.to_timestamp() * 1000
+
+    def to_human(self):
+        return str(timedelta(seconds=self.dt))  # + ' с'
