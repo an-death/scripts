@@ -13,6 +13,7 @@ from base_models.wits_models import (Wits_user_log as log,
 FROM = '2017-08-31'
 TO = '2017-10-01'
 PROJECT = 'bke'
+SHEET_NAMES = ['Сентябрь']
 ######################################################################
 USERS = defaultdict(User)
 
@@ -94,8 +95,8 @@ def write_sheet(sheet_name, writer, table):
 def create_xlsx(file_name, user_table, activity_table):
     with pd.ExcelWriter(file_name, engine='xlsxwriter') as writer:
         write_sheet('Пользователи', writer, user_table)
-        sheet_name = 'Сентябрь'  # todo сделать автоматическое опеределение месяца
-        write_sheet(sheet_name, writer, activity_table)
+        # sheet_name = 'Сентябрь'  # todo сделать автоматическое опеределение месяца
+        write_sheet(SHEET_NAMES[-1], writer, activity_table)
 
 
 def main(u: USERS, p: PROJECT):
