@@ -149,8 +149,8 @@ class Session:
 
         time, action, form = args.split('=')
         dt = Dt(time)
-
-        if form.startswith('Camera') or not form:
+        if not form: form = 'Camera'  # для закрытия всех планшетов при закрытии сессии
+        if form.startswith('Camera'):
             start = self.storage['video']['start']
             stop = self.storage['video']['stop']
             if action == 'fopen' and not start:

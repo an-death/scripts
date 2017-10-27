@@ -1,3 +1,4 @@
+import sys
 from collections import OrderedDict
 
 import pandas as pd
@@ -28,46 +29,60 @@ BKE_comr = {
     'RTM_ZSF+KF': ''
 
 }
-dbcon = get_connect_to_db('bke')
-query = dbcon.query(functions.concat(users.last_name, ' ', users.first_name, ' ', users.patr_name).label('1'),
-                    group.name.label('2'),
-                    users.organization.label('3'),
-                    users.position.label('4'),
-                    users.email.label('5'),
-                    users.name.label('6'),
-                    users.tel.label('7'),
-                    ).outerjoin(group, users.group_id == group.id)
-# query = query.filter(group.name == None)
-query = query.order_by(group.name, users.id)
-res = query.all()
-table = pd.DataFrame({i: v._asdict() for i, v in enumerate(res, 1)})
-table = table.unstack().unstack()
-table.columns = list(aliases.values())[1:]
-sheet_name = '0'
-with pd.ExcelWriter('Список пользователей GTI-online.xlsx', engine='xlsxwriter') as writer:
-    table.to_excel(writer, sheet_name=sheet_name, index_label=aliases[0], startrow=1, header=False)
-    book = writer.book
-    # Add a header format.
-    header_format = book.add_format({
-        'bold': True,
-        'text_wrap': True,
-        'valign': 'top',
-        'fg_color': '#D7E4BC',
-        'border': 2})
-    formats = {
-        'fio': book.add_format({'text_wrap': True, 'border': 1}),
 
-    }
-    # for f in formats:
-    #     formats[f].set_text_wrap()
 
-    sheet = writer.sheets[sheet_name]
-    for col_num, value in enumerate(aliases.values()):
-        sheet.write(0, col_num, value, header_format)
-    sheet.set_column('B:B', 30, formats['fio'])
-    sheet.set_column('C:C', 18, formats['fio'])
-    sheet.set_column('D:D', 38, formats['fio'])
-    sheet.set_column('E:E', 38, formats['fio'])
-    sheet.set_column('F:F', 20, formats['fio'])
-    sheet.set_column('G:G', 10, formats['fio'])
-    sheet.set_column('H:H', 28, formats['fio'])
+def get_table(con):
+    query = con.query(functions.concat(users.last_name, ' ', users.first_name, ' ', users.patr_name).label('1'),
+                      group.name.label('2'),
+                      users.organization.label('3'),
+                      users.position.label('4'),
+                      users.email.label('5'),
+                      users.name.label('6'),
+                      users.tel.label('7'),
+                      ).outerjoin(group, users.group_id == group.id)
+    # query = query.filter(group.name == None)
+    query = query.order_by(group.name, users.id)
+    res = query.all()
+    table = pd.DataFrame({i: v._asdict() for i, v in enumerate(res, 1)})
+    table = table.unstack().unstack()
+    table.columns = list(aliases.values())[1:]
+    return table
+
+
+def main(p: str):
+    dbcon = get_connect_to_db(p)
+    table = get_table(dbcon)
+    sheet_name = 'Пользователи'
+    with pd.ExcelWriter('Список пользователей GTI-online.xlsx', engine='xlsxwriter') as writer:
+        table.to_excel(writer, sheet_name=sheet_name, index_label=aliases[0], startrow=1, header=False)
+        book = writer.book
+        # Add a header format.
+        header_format = book.add_format({
+            'bold': True,
+            'text_wrap': True,
+            'align': 'center',
+            'valign': 'top',
+            'fg_color': '#D7E4BC',
+            'border': 2})
+        formats = {
+            'fio': book.add_format({'text_wrap': True,
+                                    'border': 1}),
+        }
+
+        sheet = writer.sheets[sheet_name]
+        for col_num, value in enumerate(aliases.values()):
+            sheet.write(0, col_num, value, header_format)
+        sheet.set_column('B:B', 30, formats['fio'])
+        sheet.set_column('C:C', 18, formats['fio'])
+        sheet.set_column('D:D', 38, formats['fio'])
+        sheet.set_column('E:E', 38, formats['fio'])
+        sheet.set_column('F:F', 20, formats['fio'])
+        sheet.set_column('G:G', 15, formats['fio'])
+        sheet.set_column('H:H', 28, formats['fio'])
+
+
+if __name__ == '__main__':
+    if not sys.argv:
+        exit('Введите шорткат проекта!')
+    PROJECT = sys.argv[0]
+    main(PROJECT)
