@@ -26,9 +26,12 @@ def get_wits_user_log_data(session, limit):
     log_table = session.query(log.user_id, log.date, log.data, log.event_id)
     log_table = log_table.filter(log.date.between(limit['start'].to_request(), limit['stop'].to_request()))
     log_table = log_table.filter(log.event_id.notin_([5, 6, 9]))
-    log_table = log_table.filter(log.data.notlike('%=wchange=%')).filter(log.data.notlike('%=vload=%'))
-    # print('\n'.join([str(row) for row in log_table.all()]))
-    return log_table
+    # log_table = log_table.filter(log.data.notlike('%=wchange=%')).filter(log.data.notlike('%=vload=%'))
+    # Для отловли коллизий
+    # log_table = log_table.filter(log.user_id.in_([-1,214]))
+    # todo Передавать в пандас не таблицу, а запрос?? v 0.2
+    # query_as_string = str(log_table.statement.compile(compile_kwargs={"literal_binds": True}))
+    return log_table.all()
 
 
 def close_all_active_session(date: Dt, users_dict):
@@ -95,7 +98,6 @@ def create_xlsx(file_name, user_table, activity_table):
         write_sheet(sheet_name, writer, activity_table)
 
 
-
 def main(u: USERS, p: PROJECT):
     limit = {'start': Dt(FROM), 'stop': Dt(TO)}
 
@@ -103,7 +105,6 @@ def main(u: USERS, p: PROJECT):
     event_dict = get_events_table(dbconnection)
     log_table = get_wits_user_log_data(dbconnection, limit)
 
-    log_table = log_table.all()
     for user_id, date, data, event_id in log_table:
         date = Dt(date)
 
@@ -134,14 +135,14 @@ def main(u: USERS, p: PROJECT):
                 # Игнорируем сессии, которые закрылись ранее, чем открылись
                 continue
             if user.is_logged():
-                user.close_active_session()
+                user.close_active_session(date)
                 # user.session_stop()
             # user.session[data].start(date)
             user.session_start(data, date)
         elif event_id == event_dict['User action']:
             if not user.is_logged(): continue
             active_session, args = data.split('!')
-            user.session_store(active_session, args)
+            user.session_store(active_session, date, args)
     # Закрываем все не закрытые сессии последней полученной датой.
     close_all_active_session(date, u)
     table = create_users_activity_dict(u)
@@ -149,7 +150,7 @@ def main(u: USERS, p: PROJECT):
     table = table.unstack().unstack().reset_index()
     table = table.reindex(columns=['index', 'video', 'total'])
     user_table = get_table(dbconnection)
-    create_xlsx('Список пользователей GTI-online.xlsx', user_table, table)
+    create_xlsx('reports/Список пользователей GTI-online.xlsx', user_table, table)
 
 
 
