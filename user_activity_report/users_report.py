@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 import pandas as pd
 from classes import get_connect_to_db
-from sqlalchemy.sql import functions
+from sqlalchemy.sql import func
 
 from base_models.wits_models import Wits_user as users, Wits_user_group as group
 
@@ -32,7 +32,7 @@ BKE_comr = {
 
 
 def get_table(con):
-    query = con.query(functions.concat(users.last_name, ' ', users.first_name, ' ', users.patr_name).label('1'),
+    query = con.query(func.CONCAT_WS(' ', users.last_name, users.first_name, users.patr_name).label('1'),
                       group.name.label('2'),
                       users.organization.label('3'),
                       users.position.label('4'),
@@ -42,9 +42,12 @@ def get_table(con):
                       ).outerjoin(group, users.group_id == group.id)
     # query = query.filter(group.name == None)
     query = query.order_by(group.name, users.id)
-    res = query.all()
-    table = pd.DataFrame({i: v._asdict() for i, v in enumerate(res, 1)})
-    table = table.unstack().unstack()
+    # res = query.all()
+    # table = pd.DataFrame({i: v._asdict() for i, v in enumerate(res, 1)})
+    query_as_string = query.statement.compile(compile_kwargs={"literal_binds": True},
+                                              dialect=query.session.bind.dialect)
+    table = pd.read_sql_query(query_as_string, con.connection())
+    # table = table.unstack().unstack()
     table.columns = list(aliases.values())[1:]
     return table
 
@@ -85,4 +88,5 @@ if __name__ == '__main__':
     if not sys.argv:
         exit('Введите шорткат проекта!')
     PROJECT = sys.argv[0]
+    # main('bke')
     main(PROJECT)
