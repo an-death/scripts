@@ -27,7 +27,6 @@ BKE_comr = {
     'RTM_VIP': '',
     'RTM_ZSF': '',
     'RTM_ZSF+KF': ''
-
 }
 
 
@@ -40,7 +39,7 @@ def get_table(con):
                       users.name.label('6'),
                       users.tel.label('7'),
                       ).outerjoin(group, users.group_id == group.id)
-    # query = query.filter(group.name == None)
+    query = query.filter(users.removed == 0)
     query = query.order_by(group.name, users.id)
     # res = query.all()
     # table = pd.DataFrame({i: v._asdict() for i, v in enumerate(res, 1)})
