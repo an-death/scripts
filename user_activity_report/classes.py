@@ -10,6 +10,7 @@ def get_connect_to_db(project_name: str):
     prj.configurate()
     return prj.sql_sessionmaker()
 
+
 class User:
     def __init__(self, id, session):
         self.id = id
@@ -22,37 +23,24 @@ class User:
         self.total_video_time = Dt(0)
         self.total_monitoring_time = Dt(0)
         self.collisions = []
-        # self.id = id
-        # self.network_id = user.network_id
-        # self.name = user.name
-        # self.email = user.email
-        # self.group_id = user.group_id
-        # self.role = user.role
-        # self.session = user.session
-        # self.last_name = user.last_name
-        # self.first_name = user.first_name
-        # self.part_name = user.part_name
-        # self.organization = user.organization
-        # self.position = user.position
-        # self.tel = user.tel
 
     def __str__(self):
-        # return '{}'.format(
-        #     '\n'.join('{}:  {} '.format(k, v) for k, v in self.param.__dict__.items() if not k.startswith('_')))
         return self.__repr__()
 
     def __repr__(self):
         return '{}.{}'.format(self.param.name, self.logged)
 
+    @property
     def fio(self):
         return ' '.join(str(i) for i in [self.last_name, self.first_name, self.patr_name] or [self.param.name] if i)
 
     def info(self):
         return '{id}\n{org}\n{pos} \n{name}'.format(id=self.id,
                                                     pos=self.param.position,
-                                                    name=self.fio(),
+                                                    name=self.fio,
                                                     org=self.param.organization)
 
+    @property
     def is_logged(self):
         return self.logged
 
@@ -70,7 +58,7 @@ class User:
         return session
 
     def session_start(self, session, dt):
-        assert not self.sessions(session).status(), 'Пытаемся открыть уже открутую сессию! {}'.format(session)
+        assert not self.sessions(session).status, 'Пытаемся открыть уже открутую сессию! {}'.format(session)
         self.sessions(session).open(dt)
         self.login()
 
@@ -80,9 +68,9 @@ class User:
         assert active_session is new_session, 'Сессия на закрытие не соответствует активной сессии\n' \
                                               'user: {}\n' \
                                               'active: {}\n' \
-                                                         'session: {}\n' \
-                                                         ''.format(self.info(), active_session, self.sessions(session))
-        assert active_session.status(), 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(session)
+                                              'session: {}\n' \
+                                              ''.format(self.info(), active_session, self.sessions(session))
+        assert active_session.status, 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(session)
         # todo ^ Описать решние коллизий в таком случае ^
         args_to_close_planshet = '{}=fclose='.format(dt)
         self.session_store(session, dt, args_to_close_planshet)
@@ -91,11 +79,11 @@ class User:
 
     def session_store(self, session: str, date, args: str):
         assert self.sessions(
-            session).status(), 'Текущая сессия закрыта.\n{}\nНе можем добавить запись в сессию!'.format(session)
+            session).status, 'Текущая сессия закрыта.\n{}\nНе можем добавить запись в сессию!'.format(session)
         self.sessions(session).store(date, args)
 
     def get_active_session(self):
-        session = [session for session in self._sessions.values() if session.status()]
+        session = [session for session in self._sessions.values() if session.status]
         assert len(session) == 1, 'Активной дожна быть только одна сессия! Найдено актиных сессий: ' \
                                   '\n{} ' \
                                   '\nДля пользователя: ' \
@@ -113,6 +101,7 @@ class User:
         for session in self._sessions.values():
             self.total_video_time += session.total_time_video
             self.total_monitoring_time += session.total_time
+
 
 class Session:
     def __init__(self, data):
@@ -135,6 +124,14 @@ class Session:
                 return True
             else:
                 return False
+
+    @property
+    def status(self):
+        """
+        Возвращает True/False для открытой и закрытой сесси
+        :return: Bool 
+        """
+        return self.active
 
     def close(self, dt):
         self.cached_data['last'] = dt
@@ -165,7 +162,8 @@ class Session:
         #     dt = time
         #####################################################################
         form = ''.join(form)
-        if not form: form = 'Camera'  # для закрытия всех планшетов при закрытии сессии
+        if not form:
+            form = 'Camera'  # для закрытия всех планшетов при закрытии сессии
         if form.startswith('Camera'):
             start = self.storage['video']['start']
             stop = self.storage['video']['stop']
@@ -179,13 +177,6 @@ class Session:
                 # Остальные формы игнорим.
                 # todo сделать подсчёт по всем формам
         self.cached_data['last'] = dt
-
-    def status(self):
-        """
-        Возвращает True/False для открытой и закрытой сесси
-        :return: Bool 
-        """
-        return self.active
 
     def get_cached_date(self):
         return self.cached_data['last'] or self.cached_data['start_session']
