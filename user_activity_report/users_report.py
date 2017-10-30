@@ -41,12 +41,9 @@ def get_table(con):
                       ).outerjoin(group, users.group_id == group.id)
     query = query.filter(users.removed == 0)
     query = query.order_by(group.name, users.id)
-    # res = query.all()
-    # table = pd.DataFrame({i: v._asdict() for i, v in enumerate(res, 1)})
     query_as_string = query.statement.compile(compile_kwargs={"literal_binds": True},
                                               dialect=query.session.bind.dialect)
     table = pd.read_sql_query(query_as_string, con.connection())
-    # table = table.unstack().unstack()
     table.columns = list(aliases.values())[1:]
     return table
 
