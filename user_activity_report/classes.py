@@ -19,16 +19,16 @@ class User:
         self.first_name = self.param.first_name
         self.patr_name = self.param.patr_name
         self._sessions = {}
-        self.logged = False
+        self._logged = False
         self.total_video_time = Dt(0)
         self.total_monitoring_time = Dt(0)
-        self.collisions = []
+        self._collisions = []
 
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
-        return '{}.{}'.format(self.param.name, self.logged)
+        return '{}.{}'.format(self.param.name, self._logged)
 
     @property
     def fio(self):
@@ -42,13 +42,22 @@ class User:
 
     @property
     def is_logged(self):
-        return self.logged
+        return self._logged
 
     def login(self):
-        self.logged = True
+        self._logged = True
 
     def logout(self):
-        self.logged = False
+        self._logged = False
+
+    @property
+    def collision_sessions(self):
+        return self._collisions
+
+    @collision_sessions.setter
+    def collision_sessions(self, ses):
+        ses = ses.replace('!', ' ').replace('=', ' ').split()[0]
+        self._collisions.append(ses)
 
     def sessions(self, ses):
         try:

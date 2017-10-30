@@ -154,11 +154,10 @@ def main(u: USERS, p: PROJECT):
         else:  # user.is_logout!
             if event_id in stop_cond:
                 # user tried logout before login
-                # save collision
-                # todo make collision as interface to hide realisation!
-                user.collisions.append(data.replace('!', ' ').replace('=', ' ').split()[0])
+                # save collision in list
+                user.collision_sessions = data
                 continue
-            if event_id == event_dict['Login'] and data not in user.collisions:
+            if event_id == event_dict['Login'] and data not in user.collision_sessions:
                 user.session_start(data, date)
     # ===================================================================================================================
     # CYCLE END
