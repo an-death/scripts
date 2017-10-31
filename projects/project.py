@@ -11,6 +11,10 @@ path_to_config_file = '/home/as/Документы/scr/.bash_connection_info.sh'
 CONFIGS = path.Path(path_to_config_file)
 
 
+def get_connect_to_db(project_name: str):
+    prj = Project(project_name)
+    return prj.sql_sessionmaker()
+
 class MetaProject(object):
     """Meta info for Projects
     """

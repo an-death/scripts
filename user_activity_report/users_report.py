@@ -2,10 +2,10 @@ import sys
 from collections import OrderedDict
 
 import pandas as pd
-from classes import get_connect_to_db
 from sqlalchemy.sql import func
 
 from base_models.wits_models import Wits_user as users, Wits_user_group as group
+from projects.project import get_connect_to_db
 
 aliases = OrderedDict({
     0: '№п/п',

@@ -2,13 +2,6 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from base_models.wits_models import Wits_user as users
-from projects import project
-
-
-def get_connect_to_db(project_name: str):
-    prj = project.Project(project_name)
-    prj.configurate()
-    return prj.sql_sessionmaker()
 
 
 class User:

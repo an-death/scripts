@@ -3,12 +3,13 @@
 from collections import defaultdict
 
 import pandas as pd
-from classes import User, Dt, get_connect_to_db
+from classes import User, Dt
 from users_report import get_table, aliases
 from xlsxwriter.utility import xl_range
 
 from base_models.wits_models import (Wits_user_log as log,
                                      Wits_user_event as event)
+from projects.project import get_connect_to_db
 
 # todo Сделать вводом из формы или cli
 FROM = '2017-08-31'
@@ -44,14 +45,18 @@ def close_all_active_session(date: Dt, users_dict):
             user.close_active_session(date)
 
 
-def users_activity_as_dict(users: dict):
-    # Подсчитываем время
-    users_activity_dict = {}
-    for u in users.values():
+def calculate_all_users_activity(users):
+    for u in users:
         u.calculate_total()
-        k = u.fio or u.param.name
+
+
+def users_activity_as_dict(users: dict):
+    users_activity_dict = {}
+    for i, u in enumerate(users.values()):
+        fio = u.fio or u.param.name
         group = u.param.group.name if u.param.group_id else ' '
-        users_activity_dict[k] = {'video': u.total_video_time,
+        users_activity_dict[i] = {'fio': fio,
+                                  'video': u.total_video_time,
                                   'total': u.total_monitoring_time,
                                   'group': group,
                                   'position': u.param.position
@@ -168,9 +173,10 @@ def main(u: USERS, p: PROJECT):
 
     # Закрываем все не закрытые сессии последней полученной датой.
     close_all_active_session(date, u)
-    table = pd.DataFrame(users_activity_as_dict(u))
-    table = table.unstack().unstack().reset_index()
-    table = table.reindex(columns=['index', 'group', 'position', 'video', 'total'])
+    calculate_all_users_activity(u)
+    table = pd.DataFrame.from_dikt(users_activity_as_dict(u), orient='index')
+    # table = table.unstack().unstack().reset_index()
+    # table = table.reindex(columns=['index', 'group', 'position', 'video', 'total'])
     user_table = get_table(dbconnection)
     create_xlsx('reports/Список пользователей GTI-online.xlsx', user_table, table)
 
