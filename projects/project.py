@@ -21,6 +21,7 @@ class MetaProject(object):
         :param shortcut:
         """
         self.shortcut = shortcut
+        self._configurate()
 
     def __str__(self):
         prj = [
@@ -64,7 +65,7 @@ class MetaProject(object):
     def __repr__(self):
         return '<{}({})'.format(self.name, ','.join([self.host, self.port, self.login, self.password]))
 
-    def configurate(self):
+    def _configurate(self):
         """
         Заполняем объект полями доступными в .bash_connection_info.sh
         :return:
@@ -119,6 +120,8 @@ class MetaProject(object):
         self.db_host = dict_of_attr.get('sqlGateIp', _def_db_host)
         self.encryptPK = dict_of_attr.get('encryptPK', _def_str)
         self.encryptLK = dict_of_attr.get('encryptLK', _def_str)
+        #
+        self._sql_engine()
 
     def _sql_engine(self, loging=False):
         """
@@ -150,9 +153,9 @@ class MetaProject(object):
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
             self.ssh.connect(hostname=self.host,
-                            port=int(re.findall(r'\d+',self.port)[0]),
-                            username=self.login,
-                            password=self.password)
+                             port=int(re.findall(r'\d+', self.port)[0]),
+                             username=self.login,
+                             password=self.password)
         except paramiko.AuthenticationException:
             print("Auth failed")
             self.ssh.close()
@@ -165,7 +168,7 @@ class MetaProject(object):
         :return:
         """
         if echo:
-            print('Project: {} Shortcuts: {}'.format(self.name,', '.join(self.shortcuts)))
+            print('Project: {} Shortcuts: {}'.format(self.name, ', '.join(self.shortcuts)))
         else:
             return self.shortcuts
 
@@ -173,6 +176,7 @@ class MetaProject(object):
         self.session = sessionmaker()
         self.session.configure(bind=self._sql_engine())
         return self.session()
+
 
 class Project(MetaProject):
     def info(self):
@@ -205,8 +209,6 @@ def test():
     prj_list = ['bke', 'nova', 'st', 'ggr', 'igs', 'eriell', 'gk']
     for prj in prj_list:
         p = Project(prj)
-        p.configurate()
-        p._sql_engine()
         p._ssh_connect()
         assert p.name != 'UNSPECIFIED'
         assert p.engine
