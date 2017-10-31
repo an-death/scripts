@@ -34,7 +34,7 @@ def get_wits_user_log_data(session, limit):
     log_table = log_table.filter(log.date.between(limit['start'].to_request(), limit['stop'].to_request()))
     log_table = log_table.filter(log.event_id.notin_([5, 6, 9]))
     # Для отловли коллизий
-    # log_table = log_table.filter(log.user_id.in_([-1,63]))
+    # log_table = log_table.filter(log.user_id.in_([-1,311]))
     return log_table.all()
 
 
@@ -50,8 +50,12 @@ def users_activity_as_dict(users: dict):
     for u in users.values():
         u.calculate_total()
         k = u.fio or u.param.name
-        users_activity_dict[k] = {'video': u.total_video_time.to_human(),
-                                  'total': u.total_monitoring_time.to_human()}
+        group = u.param.group.name if u.param.group_id else ' '
+        users_activity_dict[k] = {'video': u.total_video_time,
+                                  'total': u.total_monitoring_time,
+                                  'group': group,
+                                  'position': u.param.position
+                                  }
     return users_activity_dict
 
 
@@ -80,7 +84,7 @@ def write_sheet(sheet_name, writer, table):
     first_row = 1 + len(table.index)
     clean_range = xl_range(first_row, 0, first_row * 10, len(table.columns))
     # Записываем шапку
-    col = ['№п/п', 'ФИО', 'Видео', 'Всего'] if sheet_name != 'Пользователи' else aliases.values()
+    col = ['№п/п', 'ФИО', 'Филиал', 'Позиция', 'Видео', 'Всего'] if sheet_name != 'Пользователи' else aliases.values()
     for col_num, value in enumerate(col):
         sheet.write(0, col_num, value, header_format)
     # Форматируем данные
@@ -163,10 +167,10 @@ def main(u: USERS, p: PROJECT):
     # CYCLE END
 
     # Закрываем все не закрытые сессии последней полученной датой.
-    # close_all_active_session(date, u)
+    close_all_active_session(date, u)
     table = pd.DataFrame(users_activity_as_dict(u))
     table = table.unstack().unstack().reset_index()
-    table = table.reindex(columns=['index', 'video', 'total'])
+    table = table.reindex(columns=['index', 'group', 'position', 'video', 'total'])
     user_table = get_table(dbconnection)
     create_xlsx('reports/Список пользователей GTI-online.xlsx', user_table, table)
 

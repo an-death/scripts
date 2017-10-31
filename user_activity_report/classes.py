@@ -19,9 +19,10 @@ class User:
         self.first_name = self.param.first_name
         self.patr_name = self.param.patr_name
         self._sessions = {}
+        self.opened_session = []
         self._logged = False
-        self.total_video_time = Dt(0)
-        self.total_monitoring_time = Dt(0)
+        self.total_video_time = defaultdict(int)
+        self.total_monitoring_time = defaultdict(int)
         self._collisions = []
 
     def __str__(self):
@@ -42,36 +43,39 @@ class User:
 
     @property
     def is_logged(self):
-        return self._logged
-
-    def login(self):
-        self._logged = True
-
-    def logout(self):
-        self._logged = False
+        return self.active
 
     @property
     def collision_sessions(self):
         return self._collisions
 
     @collision_sessions.setter
-    def collision_sessions(self, ses):
+    def collision_sessions(self, ses: str):
         ses = ses.replace('!', ' ').replace('=', ' ').split()[0]
         self._collisions.append(ses)
 
-    def sessions(self, ses):
+    @property
+    def active(self):
+        return self.opened_session
+
+    @active.setter
+    def active(self, session: object):
+        self.active.append(session)
+
+    def sessions(self, ses: str):
         try:
             session = self._sessions[ses]
         except KeyError:
             session = self._sessions[ses] = Session(ses)
         return session
 
-    def session_start(self, session, dt):
-        assert not self.sessions(session).status, 'Пытаемся открыть уже открутую сессию! {}'.format(session)
-        self.sessions(session).open(dt)
-        self.login()
+    def session_start(self, session: str, dt: int):
+        session = self.sessions(session)
+        assert not session.status, 'Пытаемся открыть уже открутую сессию! {}'.format(session)
+        session.open(dt)
+        self.active.append(session)
 
-    def session_stop(self, session: str, dt):
+    def session_stop(self, session: str, dt: int):
         active_session = self.get_active_session()
         new_session = self.sessions(session)
         assert active_session is new_session, 'Сессия на закрытие не соответствует активной сессии\n' \
@@ -80,24 +84,25 @@ class User:
                                               'session: {}\n' \
                                               ''.format(self.info(), active_session, self.sessions(session))
         assert active_session.status, 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(session)
-        # todo ^ Описать решние коллизий в таком случае ^
         args_to_close_planshet = '{}=fclose='.format(dt)
         self.session_store(session, dt, args_to_close_planshet)
         active_session.close(dt)
-        self.logout()
+        self.active.remove(active_session)
 
     def session_store(self, session: str, date, args: str):
-        assert self.sessions(
-            session).status, 'Текущая сессия закрыта.\n{}\nНе можем добавить запись в сессию!'.format(session)
-        self.sessions(session).store(date, args)
+        active_session = self.get_active_session()
+        if active_session.ses != session:
+            print('Не можем записать в сессию {}! Данная сесия не является активной! Активаня сессия: {}'.
+                  format(session, active_session.ses))
+            raise ReferenceError
+        active_session.store(date, args)
 
     def get_active_session(self):
-        session = [session for session in self._sessions.values() if session.status]
+        session = self.active
         assert len(session) == 1, 'Активной дожна быть только одна сессия! Найдено актиных сессий: ' \
                                   '\n{} ' \
                                   '\nДля пользователя: ' \
                                   '\n{}'.format(session, self.info())
-        # todo ^ Описать решние коллизий в таком случае ^
         return session[-1]
 
     def close_active_session(self, dt=None):
@@ -107,9 +112,11 @@ class User:
         self.session_stop(active_session.ses, dt)
 
     def calculate_total(self):
-        for session in self._sessions.values():
-            self.total_video_time += session.total_time_video
-            self.total_monitoring_time += session.total_time
+        for ses in self._sessions.values():
+            self.total_video_time[ses.date] += ses.total_time_video.to_timestamp()
+            self.total_monitoring_time[ses.date] += ses.total_time.to_timestamp()
+        self.total_video_time = {k: Dt(v) for k, v in self.total_video_time.items()}
+        self.total_monitoring_time = {k: Dt(v) for k, v in self.total_video_time.items()}
 
 
 class Session:
@@ -123,7 +130,7 @@ class Session:
         self.storage = {'all': {'total': 0}, 'video': {'start': 0, 'stop': 0}}
 
     def __str__(self):
-        return '{}.{}'.format(self.ses, self.active)
+        return '{}.{}.{}'.format(self.ses, self.active, self.cached_data['last'])
 
     def __eq__(self, other):
         if not isinstance(other, Session):
@@ -141,6 +148,10 @@ class Session:
         :return: Bool 
         """
         return self.active
+
+    @property
+    def date(self):
+        return Dt.to_report(self.cached_data['start_session'], self.cached_data['last'])
 
     def close(self, dt):
         self.cached_data['last'] = dt
@@ -261,3 +272,16 @@ class Dt:
 
     def to_human(self):
         return str(timedelta(seconds=self.dt))  # + ' с'
+
+    @staticmethod
+    def to_report(dt_1, dt_2=0):
+        """Возвращаем месяц и год для сессии"""
+        if isinstance(dt_1, int):
+            dt_1 = Dt(dt_1)
+        if isinstance(dt_2, int):
+            dt_2 = Dt(dt_2)
+        start = dt_1.dt
+        stop = dt_2.dt
+        mediana = (start + stop) / 2
+        dt = datetime.fromtimestamp(mediana)
+        return dt.strftime('%B %Y')
