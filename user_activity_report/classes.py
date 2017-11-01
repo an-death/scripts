@@ -4,7 +4,12 @@ from datetime import datetime, timedelta
 from base_models.wits_models import Wits_user as users
 
 
-class User:
+class Meta:
+    def __repr__(self):
+        return '<class.{}({})>'.format(self.__class__.__name__, self.__str__())
+
+
+class User(Meta):
     def __init__(self, id, session):
         self.id = id
         self.param = session.query(users).filter_by(id=id).first()
@@ -19,10 +24,7 @@ class User:
         self._collisions = []
 
     def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        return '{}.{}'.format(self.param.name, self._logged)
+        return '{}.{}'.format(self.fio, bool(self.is_logged))
 
     @property
     def fio(self):
@@ -109,10 +111,10 @@ class User:
             self.total_video_time[ses.date] += ses.total_time_video.to_timestamp()
             self.total_monitoring_time[ses.date] += ses.total_time.to_timestamp()
         self.total_video_time = {k: Dt(v) for k, v in self.total_video_time.items()}
-        self.total_monitoring_time = {k: Dt(v) for k, v in self.total_video_time.items()}
+        self.total_monitoring_time = {k: Dt(v) for k, v in self.total_monitoring_time.items()}
 
 
-class Session:
+class Session(Meta):
     def __init__(self, data):
         self.ses = data
         self.total_time = Dt(0)
@@ -204,7 +206,7 @@ class Session:
         return '{} - {}'.format(self.cached_data['start_session'], self.cached_data['last'])
 
 
-class Dt:
+class Dt(Meta):
     formats = {'date': '%Y-%m-%d', 'datetime': '%Y-%m-%d %H:%M:%S'}
 
     def __init__(self, dt):
@@ -229,10 +231,8 @@ class Dt:
             exit('Не получилось распознать dt {}, type({})'.format(dt, type(dt)))
 
     def __str__(self):
-        return self.to_string()
-
-    def __repr__(self):
-        return self.__str__()
+        year = Dt('2000-01-01').to_timestamp()
+        return self.to_string() if self.dt > year else self.to_human()
 
     def __float__(self):
         return float(self.dt)
@@ -241,6 +241,9 @@ class Dt:
         if isinstance(other, Dt):
             other = other.dt
         return Dt(self.dt - other)
+
+    def __int__(self):
+        return self.to_timestamp()
 
     def __add__(self, other):
         if isinstance(other, Dt):
