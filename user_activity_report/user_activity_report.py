@@ -4,8 +4,8 @@ from collections import defaultdict
 
 import pandas as pd
 from classes import User, Dt
-from users_report import get_table, aliases
-from xlsxwriter.utility import xl_range
+from table_writer import create_xlsx
+from users_report import get_table
 
 from base_models.wits_models import (Wits_user_log as log,
                                      Wits_user_event as event)
@@ -18,6 +18,15 @@ PROJECT = 'bke'
 SHEET_NAMES = ['Сентябрь']
 ######################################################################
 USERS = defaultdict(User)
+
+
+def apply_nested(func, lst, isatom=lambda item: not isinstance(item, list)):
+    for i, item in enumerate(lst):
+        if isatom(item):
+            lst[i] = func(item)
+        else:
+            apply_nested(func, item, isatom)
+    return lst
 
 
 def get_events_table(session):
@@ -46,80 +55,49 @@ def close_all_active_session(date: Dt, users_dict):
 
 
 def calculate_all_users_activity(users):
-    for u in users:
+    for u in users.values():
         u.calculate_total()
 
 
 def users_activity_as_dict(users: dict):
-    users_activity_dict = {}
+    users_activity_dict = {'video': {}, 'total': {}}
+    for i, u in enumerate(users.values()):
+        users_activity_dict['video'][i], users_activity_dict['total'][i] = u.total_video_time, u.total_monitoring_time
+    return users_activity_dict['video'], users_activity_dict['total']
+
+
+def prepeare_table(users, data_dict):
+    users_info = {}
     for i, u in enumerate(users.values()):
         fio = u.fio or u.param.name
         group = u.param.group.name if u.param.group_id else ' '
-        users_activity_dict[i] = {'fio': fio,
-                                  'video': u.total_video_time,
-                                  'total': u.total_monitoring_time,
-                                  'group': group,
-                                  'position': u.param.position
-                                  }
-    return users_activity_dict
+        users_info[i] = {
+            'fio': fio,
+            'group': group,
+            'position': u.param.position
+        }
 
+    user_info_table = pd.DataFrame.from_dict(users_info, orient='index')
+    user_info_table.columns = pd.MultiIndex.from_arrays(
+        [user_info_table.columns, [None] * len(user_info_table.columns)])
+    default_head = 'Использование видеонаблюдения в системе УМБ'
 
-def write_sheet(sheet_name, writer, table):
-    table.to_excel(writer, sheet_name=sheet_name, index_label='№п/п', startrow=1, header=False)
-    book = writer.book
-    # Add a header format.
-    header_format = book.add_format({
-        'bold': True,
-        'text_wrap': True,
-        'align': 'center',
-        'valign': 'top',
-        'fg_color': '#D7E4BC',
-        'border': 2})
-    formats = {
-        'clean': book.add_format({'border': None}),
-        'fio': book.add_format({'text_wrap': True, 'border': 1}),
-        'data': book.add_format({
-            'text_wrap': True,
-            'align': 'center',
-            'valign': 'center',
-            'border': 1})
-    }
+    columns = tuple([(default_head, k) for k in data_dict[0].keys()] + [(default_head, 'total')])
 
-    sheet = writer.sheets[sheet_name]
-    first_row = 1 + len(table.index)
-    clean_range = xl_range(first_row, 0, first_row * 10, len(table.columns))
-    # Записываем шапку
-    col = ['№п/п', 'ФИО', 'Филиал', 'Позиция', 'Видео', 'Всего'] if sheet_name != 'Пользователи' else aliases.values()
-    for col_num, value in enumerate(col):
-        sheet.write(0, col_num, value, header_format)
-    # Форматируем данные
-    if sheet_name != 'Пользователи':
-        sheet.set_column('B:B', 30, formats['fio'])
-        sheet.set_column('C:C', 20, formats['data'])
-        sheet.set_column('D:D', 20, formats['data'])
-    else:
-        sheet.set_column('B:B', 30, formats['fio'])
-        sheet.set_column('C:C', 18, formats['fio'])
-        sheet.set_column('D:D', 38, formats['fio'])
-        sheet.set_column('E:E', 38, formats['fio'])
-        sheet.set_column('F:F', 20, formats['fio'])
-        sheet.set_column('G:G', 15, formats['fio'])
-        sheet.set_column('H:H', 28, formats['fio'])
-    # clean all below data
-    sheet.conditional_format('B1', {'type': 'blanks',
-                                    'multi_range': clean_range,
-                                    'format': formats['clean']})
+    datas = [list((*data.values(), Dt(sum(map(int, data.values()))))) for data in data_dict.values()]
 
+    mult_index = pd.MultiIndex.from_tuples(columns)
 
-def create_xlsx(file_name, user_table, activity_table):
-    with pd.ExcelWriter(file_name, engine='xlsxwriter') as writer:
-        write_sheet('Пользователи', writer, user_table)
-        # sheet_name = 'Сентябрь'  # todo сделать автоматическое опеределение месяца и цикл
-        write_sheet(SHEET_NAMES[-1], writer, activity_table)
+    t = pd.DataFrame. \
+        from_records(data=(apply_nested(Dt.to_human, datas)),
+                     index=data_dict.keys(),
+                     columns=mult_index)
+    merged = pd.concat([user_info_table, t], axis=1)
+    # todo добавить 2а пустых столбца - Экспедиция (если применимо),Примечание
+    return merged
 
 
 def main(u: USERS, p: PROJECT):
-    # todo Дробить промежутки по месяцам
     limit = {'start': Dt(FROM), 'stop': Dt(TO)}
 
     # Создаём сессию подключения к базе, передавая шорткат проекта
@@ -174,11 +152,13 @@ def main(u: USERS, p: PROJECT):
     # Закрываем все не закрытые сессии последней полученной датой.
     close_all_active_session(date, u)
     calculate_all_users_activity(u)
-    table = pd.DataFrame.from_dikt(users_activity_as_dict(u), orient='index')
-    # table = table.unstack().unstack().reset_index()
-    # table = table.reindex(columns=['index', 'group', 'position', 'video', 'total'])
+
     user_table = get_table(dbconnection)
-    create_xlsx('reports/Список пользователей GTI-online.xlsx', user_table, table)
+    video_dict, total_dict = users_activity_as_dict(u)
+    video_table = prepeare_table(u, video_dict)
+    total_table = prepeare_table(u, total_dict)
+
+    create_xlsx('reports/Список пользователей GTI-online.xlsx', user_table, video_table, total_table)
 
 
 if __name__ == '__main__':
