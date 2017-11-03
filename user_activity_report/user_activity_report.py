@@ -1,9 +1,8 @@
 # -*- coding:utf-8  -*-
 
-from collections import defaultdict
-
 import pandas as pd
 from classes import User, Dt
+from collections import defaultdict
 from table_writer import create_xlsx
 from users_report import get_table
 
@@ -12,10 +11,9 @@ from base_models.wits_models import (Wits_user_log as log,
 from projects.project import get_connect_to_db
 
 # todo Сделать вводом из формы или cli
-FROM = '2017-08-31'
+FROM = '2017-07-31'
 TO = '2017-10-01'
 PROJECT = 'bke'
-SHEET_NAMES = ['Сентябрь']
 ######################################################################
 USERS = defaultdict(User)
 
@@ -78,9 +76,11 @@ def prepeare_table(users, data_dict):
         }
 
     user_info_table = pd.DataFrame.from_dict(users_info, orient='index')
+    user_info_table.insert(2, None, 'expedition')
+
     user_info_table.columns = pd.MultiIndex.from_arrays(
         [user_info_table.columns, [None] * len(user_info_table.columns)])
-    default_head = 'Использование видеонаблюдения в системе УМБ'
+    default_head = 'Колличество часов'
 
     columns = tuple([(default_head, k) for k in data_dict[0].keys()] + [(default_head, 'total')])
 

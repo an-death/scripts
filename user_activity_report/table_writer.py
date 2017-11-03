@@ -3,9 +3,13 @@ import pandas as pd
 from users_report import aliases
 from xlsxwriter.utility import xl_range
 
+DEFAULT_HEADER_VIDEO = 'Использование видеонаблюдения GTI-Online'
+DEFAULT_HEADER_TOTAL = 'Использование мониторинга GTI-Online'
+DEFAULT_HEADER_USERS = 'Пользователи GTI-Online'
+
 
 def write_sheet(sheet_name, writer, table):
-    table.to_excel(writer, sheet_name=sheet_name, index_label='№п/п', startrow=1, header=False)
+    table.to_excel(writer, sheet_name=sheet_name, index_label='№п/п', startrow=1)  # , header=False)
     book = writer.book
     # Add a header format.
     header_format = book.add_format({
