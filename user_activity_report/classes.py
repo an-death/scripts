@@ -1,7 +1,12 @@
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 
 from base_models.wits_models import Wits_user as users
+
+
+def sort_by_month(date: str):
+    """Передаём сюда дату в формате October 2017"""
+    return datetime.strptime(date, '%B %Y')
 
 
 class Meta:
@@ -108,10 +113,13 @@ class User(Meta):
 
     def calculate_total(self):
         for ses in self._sessions.values():
-            self.total_video_time[ses.date] += ses.total_time_video.to_timestamp()
-            self.total_monitoring_time[ses.date] += ses.total_time.to_timestamp()
-        self.total_video_time = {k: Dt(v) for k, v in self.total_video_time.items()}
-        self.total_monitoring_time = {k: Dt(v) for k, v in self.total_monitoring_time.items()}
+            self.total_video_time[ses.month] += ses.total_time_video.to_timestamp()
+            self.total_monitoring_time[ses.month] += ses.total_time.to_timestamp()
+            # Сортируем ключи по месяцам и записывам в виде "Месяц":{времяы}
+        self.total_video_time = OrderedDict({k: Dt(v) for k, v in sorted(self.total_video_time.items(),
+                                                                         key=lambda x: sort_by_month(x[0]))})
+        self.total_monitoring_time = OrderedDict({k: Dt(v) for k, v in sorted(self.total_monitoring_time.items(),
+                                                                              key=lambda x: sort_by_month(x[0]))})
 
 
 class Session(Meta):
@@ -145,7 +153,7 @@ class Session(Meta):
         return self.active
 
     @property
-    def date(self):
+    def month(self):
         return Dt.to_report(self.cached_data['start_session'], self.cached_data['last'])
 
     def close(self, dt):
@@ -162,10 +170,10 @@ class Session(Meta):
         self.active = True
 
     def store(self, dt, args: str):
-        def calculate(start, last):
-            assert last >= start, 'В результате вычитания получился отрицательный результат,' \
-                                  ' что не возможно для времени!\n {} > {} \nsession: {}'.format(last, start, self.ses)
-            total = last - start
+        def calculate(first, last):
+            assert last >= first, 'В результате вычитания получился отрицательный результат,' \
+                                  ' что не возможно для времени!\n {} > {} \nsession: {}'.format(last, first, self.ses)
+            total = last - first
             self.total_time_video += total
             self.storage['video']['stop'], self.storage['video']['start'] = 0, 0
 
@@ -270,7 +278,7 @@ class Dt(Meta):
         return str(timedelta(seconds=self.dt))  # + ' с'
 
     @staticmethod
-    def to_report(dt_1, dt_2=0):
+    def to_report(dt_1: int, dt_2=0):
         """Возвращаем месяц и год для сессии"""
         if isinstance(dt_1, int):
             dt_1 = Dt(dt_1)
@@ -278,6 +286,6 @@ class Dt(Meta):
             dt_2 = Dt(dt_2)
         start = dt_1.dt
         stop = dt_2.dt
-        mediana = (start + stop) / 2
-        dt = datetime.fromtimestamp(mediana)
+        median = (start + stop) / 2
+        dt = datetime.fromtimestamp(median)
         return dt.strftime('%B %Y')
