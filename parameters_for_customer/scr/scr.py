@@ -1,13 +1,13 @@
-import pandas as pd
 # import os
 # import json
 import datetime
 from collections import OrderedDict
+
+import pandas as pd
+from sqlalchemy.exc import ProgrammingError
 # from xlsxwriter import worksheet
 from xlsxwriter.utility import xl_range, xl_col_to_name
-from sqlalchemy.exc import ProgrammingError
 
-from argparser import parsargs
 from classes import Project, Well
 
 TEST = False
@@ -16,6 +16,13 @@ RECORDS_COMPREHENSION = {
     'record_11': 'Состояние емкостей',
     'record_12': 'Данные хромотографа'
 }
+
+
+def get_date():
+    date1 = datetime.datetime.now()
+    diff = datetime.timedelta(weeks=2)
+    date2 = date1 - diff
+    return date1, date2
 
 
 def get_project_configs(prj_shortcut):
@@ -30,21 +37,30 @@ def get_project_configs(prj_shortcut):
 
 
 def check_well(session: object, well_name: str, records: list):
+    date1, date2 = get_date()
     select_well = 'select name, wellbore_id from WITS_WELL where name="{}"'.format(well_name)
-    select_records = 'select * from WITS_RECORD{r}_IDX_{w} where id >0 limit 1'
+    select_records = 'select * from WITS_RECORD{r}_IDX_{w} ' \
+                     'where id >0 ' \
+                     'and date between "{d2:%Y-%m-%d %H:%M:%S}" and "{d1:%Y-%m-%d %H:%M:%S}" limit 1'
     con = session.connection()
     well = con.execute(select_well).fetchone()
     if not well:
         exit('Скважина "{}" найдена'.format(well_name))
     for record in records:
-        rec = select_records.format(r=record, w=well.wellbore_id)
+        rec = select_records.format(r=record, w=well.wellbore_id, d1=date1, d2=date2)
         try:
-            con.execute(rec)
+            res = con.execute(rec)
         except ProgrammingError:
             print('Индесной таблицы для рекорда: {} и скважины: {} Не найдено!\nУдаляем рекорд из списка...'.format(
                 record,
                 well.name)
             )
+            records.pop(records.index(record))
+        if res.rowcount == 0:
+            print('В выборке за указанное время отстутсвуют данные по рекорду.\n'
+                  '{} \nРекорд: {}'
+                  '\n{:%Y-%m-%d %H:%M:%S} and {:%Y-%m-%d %H:%M:%S}'
+                  '\nУдаляем рекорд из списка...'.format(well.name, record, date2, date1))
             records.pop(records.index(record))
 
 
@@ -78,9 +94,7 @@ def get_param_table(connect, record_id, source_type_id):
 def get_data_tables(connect, record_id, wellbore_id):
     # todo Переработать запросы и обсчитывать макс значения для каждого параметра для кажого ACTC на стороне базы
 
-    date1 = datetime.datetime.now()
-    diff = datetime.timedelta(weeks=2)
-    date2 = date1 - diff
+    date1, date2 = get_date()
     sql_query_idx = 'select id, ' \
                     'FROM_UNIXTIME(' \
                     'UNIX_TIMESTAMP(' \
@@ -293,7 +307,10 @@ def main(project, well_name, list_of_records):
 
 
 if __name__ == '__main__':
-    project, well_name, list_of_records = parsargs()
-    if project is None or well_name is None:
-        exit('Введите шорткат сервера и имя скважины! \nИскользуйте ключ "-h" для вывода помощи')
+    # project, well_name, list_of_records = parsargs()
+    # if project is None or well_name is None:
+    #     exit('Введите шорткат сервера и имя скважины! \nИскользуйте ключ "-h" для вывода помощи')
+    project = 'bke'
+    well_name = 'Ардатовская к.1, 1'
+    list_of_records = [1, 11, 12]
     main(project, well_name, list_of_records)
