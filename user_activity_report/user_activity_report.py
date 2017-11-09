@@ -3,7 +3,7 @@
 from collections import defaultdict
 
 import pandas as pd
-from classes import User, Dt, sortdate
+from classes import User, Dt, sort_by_month
 from table_writer import create_xlsx
 from users_report import get_table
 
@@ -67,43 +67,54 @@ def users_activity_as_dict(users: dict):
 
 def prepare_table(users, data_dict):
     users_info = {}
+    # формируем словарик с информацией по пользователям в формате i:{info}
     for i, u in enumerate(users.values()):
         fio = u.fio or u.param.name
         group = u.param.group.name if u.param.group_id else ' '
         users_info[i] = {
-            'group': group,
-            'fio': fio,
-            'position': u.param.position
+            'Group': group,
+            'Fio': fio,
+            'Position': u.param.position
         }
-
+    # Преобразуем словарик с пользователями в pandas DataFrame
     user_info_table = pd.DataFrame.from_dict(users_info, orient='index')
-    user_info_table.insert(1, 'expedition', None)
-
+    # Добавляем в дата-фрэйм пустой второй столбец с "Экспедицией"
+    user_info_table.insert(1, 'Expedition', None)
+    # В случае необходимости заполнения поля ^ Сюда вставляем данные!
+    # Делаем мультииндексной шапку таблицы пользователей, т.е. теперь шапка занимает 2е строки.
+    # Нужно для конката с данными
     user_info_table.columns = pd.MultiIndex.from_arrays(
         [user_info_table.columns, user_info_table.columns])
+
+    # Заголовок для столбцов с данными (верхняя шапка мультииндекса)
     default_head = 'Колличество часов'
-
-    columns_time = tuple([(default_head, k) for k in sorted(data_dict[0].keys(), key=sortdate)])
-    columns_total = ((default_head, 'total'),)
-
+    # Подготовка кортежей для шапки таблиц с данными по месяцам и таблицы с суммой
+    columns_time = tuple([(default_head, k) for k in sorted(data_dict[0].keys(), key=sort_by_month)])
+    columns_total = ((default_head, 'Total'),)
+    # Подготовка листа с данными для заполенеия таблиц
     datas = [[data.get(k[-1], Dt(0)) for k in columns_time] for data in data_dict.values()]
     datas_total = [[Dt(sum(map(int, data.values())))] for data in data_dict.values()]
+
+    # Таблица с данными по месяцам
     time = pd.DataFrame. \
         from_records(data=(apply_nested(Dt.to_human, datas)),
                      index=data_dict.keys(),
                      columns=pd.MultiIndex.from_tuples(columns_time)
                      )
+    # Таблица с общим временем
     total = pd.DataFrame. \
         from_records(data=apply_nested(Dt.to_human, datas_total),
                      index=data_dict.keys(),
                      columns=pd.MultiIndex.from_tuples(columns_total)
                      )
+    # Пустой столбец "Примечание"
     empty = pd.DataFrame. \
-        from_records(data=[[None]] * len(data_dict.keys()),
+        from_records(data=[[None]] * len(data_dict.keys()),  # Данные вставлять сюда
                      index=data_dict.keys(),
-                     columns=pd.MultiIndex.from_tuples(tuples=(('Прочее', 'Прочее'),))
+                     columns=pd.MultiIndex.from_tuples(tuples=(('Примечание', 'Примечание'),))
                      )
-    merged = pd.concat([user_info_table, time, total, empty], axis=1)
+    # Создаём общий ДФ из таблиц
+    merged = pd.concat([user_info_table, time, total, empty], axis=1, copy=False)
     return merged
 
 
