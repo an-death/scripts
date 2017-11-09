@@ -1,8 +1,9 @@
 # -*- coding:utf-8  -*-
 
-import pandas as pd
-from classes import User, Dt
 from collections import defaultdict
+
+import pandas as pd
+from classes import User, Dt, sortdate
 from table_writer import create_xlsx
 from users_report import get_table
 
@@ -11,7 +12,7 @@ from base_models.wits_models import (Wits_user_log as log,
 from projects.project import get_connect_to_db
 
 # todo Сделать вводом из формы или cli
-FROM = '2017-07-31'
+FROM = '2017-08-31'
 TO = '2017-10-01'
 PROJECT = 'bke'
 ######################################################################
@@ -64,36 +65,45 @@ def users_activity_as_dict(users: dict):
     return users_activity_dict['video'], users_activity_dict['total']
 
 
-def prepeare_table(users, data_dict):
+def prepare_table(users, data_dict):
     users_info = {}
     for i, u in enumerate(users.values()):
         fio = u.fio or u.param.name
         group = u.param.group.name if u.param.group_id else ' '
         users_info[i] = {
-            'fio': fio,
             'group': group,
+            'fio': fio,
             'position': u.param.position
         }
 
     user_info_table = pd.DataFrame.from_dict(users_info, orient='index')
-    user_info_table.insert(2, None, 'expedition')
+    user_info_table.insert(1, 'expedition', None)
 
     user_info_table.columns = pd.MultiIndex.from_arrays(
-        [user_info_table.columns, [None] * len(user_info_table.columns)])
+        [user_info_table.columns, user_info_table.columns])
     default_head = 'Колличество часов'
 
-    columns = tuple([(default_head, k) for k in data_dict[0].keys()] + [(default_head, 'total')])
+    columns_time = tuple([(default_head, k) for k in sorted(data_dict[0].keys(), key=sortdate)])
+    columns_total = ((default_head, 'total'),)
 
-    datas = [list((*data.values(), Dt(sum(map(int, data.values()))))) for data in data_dict.values()]
-
-    mult_index = pd.MultiIndex.from_tuples(columns)
-
-    t = pd.DataFrame. \
+    datas = [[data.get(k[-1], Dt(0)) for k in columns_time] for data in data_dict.values()]
+    datas_total = [[Dt(sum(map(int, data.values())))] for data in data_dict.values()]
+    time = pd.DataFrame. \
         from_records(data=(apply_nested(Dt.to_human, datas)),
                      index=data_dict.keys(),
-                     columns=mult_index)
-    merged = pd.concat([user_info_table, t], axis=1)
-    # todo добавить 2а пустых столбца - Экспедиция (если применимо),Примечание
+                     columns=pd.MultiIndex.from_tuples(columns_time)
+                     )
+    total = pd.DataFrame. \
+        from_records(data=apply_nested(Dt.to_human, datas_total),
+                     index=data_dict.keys(),
+                     columns=pd.MultiIndex.from_tuples(columns_total)
+                     )
+    empty = pd.DataFrame. \
+        from_records(data=[[None]] * len(data_dict.keys()),
+                     index=data_dict.keys(),
+                     columns=pd.MultiIndex.from_tuples(tuples=(('Прочее', 'Прочее'),))
+                     )
+    merged = pd.concat([user_info_table, time, total, empty], axis=1)
     return merged
 
 
@@ -155,8 +165,8 @@ def main(u: USERS, p: PROJECT):
 
     user_table = get_table(dbconnection)
     video_dict, total_dict = users_activity_as_dict(u)
-    video_table = prepeare_table(u, video_dict)
-    total_table = prepeare_table(u, total_dict)
+    video_table = prepare_table(u, video_dict)
+    total_table = prepare_table(u, total_dict)
 
     create_xlsx('reports/Список пользователей GTI-online.xlsx', user_table, video_table, total_table)
 
