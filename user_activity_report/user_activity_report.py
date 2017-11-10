@@ -13,7 +13,7 @@ from projects.project import get_connect_to_db
 
 # todo Сделать вводом из формы или cli
 FROM = '2017-08-31'
-TO = '2017-10-01'
+TO = '2017-12-01'
 PROJECT = 'bke'
 ######################################################################
 USERS = defaultdict(User)
@@ -42,6 +42,7 @@ def get_wits_user_log_data(session, limit):
     log_table = session.query(log.user_id, log.date, log.data, log.event_id)
     log_table = log_table.filter(log.date.between(limit['start'].to_request(), limit['stop'].to_request()))
     log_table = log_table.filter(log.event_id.notin_([5, 6, 9]))
+    log_table = log_table.order_by(log.date)
     # Для отловли коллизий
     # log_table = log_table.filter(log.user_id.in_([-1,311]))
     return log_table.all()
