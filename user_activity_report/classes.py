@@ -78,24 +78,36 @@ class User(Meta):
     def session_stop(self, session: str, dt: int):
         active_session = self.get_active_session()
         new_session = self.sessions(session)
-        assert active_session is new_session, 'Сессия на закрытие не соответствует активной сессии\n' \
-                                              'user: {}\n' \
-                                              'active: {}\n' \
-                                              'session: {}\n' \
-                                              ''.format(self.info(), active_session, self.sessions(session))
-        assert active_session.status, 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(session)
+        # todo сработало для сессий 1502104377822 и 1502104704573
+        if active_session is not new_session:
+            print('Сессия на закрытие не соответствует активной сессии\n'
+                  'user: {}\n'
+                  'active: {}\n'
+                  'new_session: {}'.format(self.info(), active_session, new_session))
+            print(' Игнорируем Сессию {}!!\n'.format(new_session))
+            self.collision_sessions = session
+            return None
+        assert active_session.status, 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(active_session)
         args_to_close_planshet = '{}=fclose='.format(dt)
-        self.session_store(session, dt, args_to_close_planshet)
+        self.session_store(active_session.ses, dt, args_to_close_planshet)
         active_session.close(dt)
         self.active.remove(active_session)
 
     def session_store(self, session: str, date, args: str):
         active_session = self.get_active_session()
         if active_session.ses != session:
-            print('Не можем записать в сессию {}! Данная сесия не является активной! Активаня сессия: {}'.
-                  format(session, active_session.ses))
-            raise ReferenceError
-        active_session.store(date, args)
+            # Ищем старую закрытую сессию, не открываем её, но записываем в неё отдельно!
+            print('Не можем записать в сессию {}! Данная сесия не является активной! Активаная сессия: {}'.
+                  format(session, active_session))
+            if session not in self._sessions:
+                print('Данной сессии нет у пользователя! Игнорируем...')
+                return None
+            else:
+                old_session = self.sessions(session)
+                print('У пользователя найдена сессия {}! Сохраняем данные в неё!'.format(old_session))
+                old_session.store(date, args)
+        else:
+            active_session.store(date, args)
 
     def get_active_session(self):
         session = self.active
@@ -133,7 +145,10 @@ class Session(Meta):
         self.storage = {'all': {'total': 0}, 'video': {'start': 0, 'stop': 0}}
 
     def __str__(self):
-        return '{}.{}.{}'.format(self.ses, self.active, self.cached_data['last'])
+        return '{}.{}.{}|total:{}'.format(self.ses,
+                                          self.active,
+                                          self.cached_data['start_session'],
+                                          self.return_total_time)
 
     def __eq__(self, other):
         if not isinstance(other, Session):
@@ -167,6 +182,7 @@ class Session(Meta):
 
     def open(self, dt):
         self.cached_data['start_session'] = dt
+        self.cached_data['last'] = dt
         self.active = True
 
     def store(self, dt, args: str):
