@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 from base_models.wits_models import Wits_user as users
 
 
+# todo Добавить logger
+
+
 def sort_by_month(date: str):
     """Передаём сюда дату в формате October 2017"""
     return datetime.strptime(date, '%B %Y')
@@ -79,11 +82,11 @@ class User(Meta):
         active_session = self.get_active_session()
         new_session = self.sessions(session)
         if active_session is not new_session:
-            print('Сессия на закрытие не соответствует активной сессии\n'
+            print('[INFO]Сессия на закрытие не соответствует активной сессии\n'
                   'user: {}\n'
                   'active: {}\n'
                   'new_session: {}'.format(self.info(), active_session, new_session))
-            print(' Игнорируем Сессию {}!!\n'.format(new_session))
+            print('[INFO]Игнорируем Сессию {}!!\n'.format(new_session))
             self.collision_sessions = session
             return None
         assert active_session.status, 'Пытаемся закрыть сессию. Сессия уже закрыта! {}'.format(active_session)
@@ -96,14 +99,14 @@ class User(Meta):
         active_session = self.get_active_session()
         if active_session.ses != session:
             # Ищем старую закрытую сессию, не открываем её, но записываем в неё отдельно!
-            print('Не можем записать в сессию {}! Данная сесия не является активной! Активаная сессия: {}'.
+            print('[INFO]Не можем записать в сессию {}! Данная сесия не является активной! Активаная сессия: {}'.
                   format(session, active_session))
             if session not in self._sessions:
-                print('Данной сессии нет у пользователя! Игнорируем...')
+                print('[WARN]Данной сессии нет у пользователя! Игнорируем...')
                 return None
             else:
                 old_session = self.sessions(session)
-                print('У пользователя найдена сессия {}! Сохраняем данные в неё!'.format(old_session))
+                print('[INFO]У пользователя найдена сессия {}! Сохраняем данные в неё!'.format(old_session))
                 old_session.store(date, args)
         else:
             active_session.store(date, args)
