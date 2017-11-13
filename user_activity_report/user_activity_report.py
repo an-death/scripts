@@ -1,5 +1,6 @@
 # -*- coding:utf-8  -*-
 
+from collections import OrderedDict
 from collections import defaultdict
 
 import pandas as pd
@@ -72,15 +73,11 @@ def prepare_table(users, data_dict):
     for i, u in enumerate(users.values()):
         fio = u.fio or u.param.name
         group = u.param.group.name if u.param.group_id else ' '
-        users_info[i] = {
-            'Group': group,
-            'Fio': fio,
-            'Position': u.param.position
-        }
-    # Преобразуем словарик с пользователями в pandas DataFrame
+        users_info[i] = OrderedDict([('Филиал', group), ('ФИО', fio), ('Должность', u.param.position)])
+        # Преобразуем словарик с пользователями в pandas DataFrame
     user_info_table = pd.DataFrame.from_dict(users_info, orient='index')
     # Добавляем в дата-фрэйм пустой второй столбец с "Экспедицией"
-    user_info_table.insert(1, 'Expedition', None)
+    user_info_table.insert(1, 'Экспедиция', None)
     # В случае необходимости заполнения поля ^ Сюда вставляем данные!
     # Делаем мультииндексной шапку таблицы пользователей, т.е. теперь шапка занимает 2е строки.
     # Нужно для конката с данными
@@ -91,7 +88,7 @@ def prepare_table(users, data_dict):
     default_head = 'Колличество часов'
     # Подготовка кортежей для шапки таблиц с данными по месяцам и таблицы с суммой
     columns_time = tuple([(default_head, k) for k in sorted(data_dict[0].keys(), key=sort_by_month)])
-    columns_total = ((default_head, 'Total'),)
+    columns_total = ((default_head, 'Всего'),)
     # Подготовка листа с данными для заполенеия таблиц
     datas = [[data.get(k[-1], Dt(0)) for k in columns_time] for data in data_dict.values()]
     datas_total = [[Dt(sum(map(int, data.values())))] for data in data_dict.values()]
