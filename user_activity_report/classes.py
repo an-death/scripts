@@ -78,7 +78,6 @@ class User(Meta):
     def session_stop(self, session: str, dt: int):
         active_session = self.get_active_session()
         new_session = self.sessions(session)
-        # todo сработало для сессий 1502104377822 и 1502104704573
         if active_session is not new_session:
             print('Сессия на закрытие не соответствует активной сессии\n'
                   'user: {}\n'
@@ -148,7 +147,7 @@ class Session(Meta):
         return '{}.{}.{}|total:{}'.format(self.ses,
                                           self.active,
                                           self.cached_data['start_session'],
-                                          self.return_total_time)
+                                          self.total_time)
 
     def __eq__(self, other):
         if not isinstance(other, Session):
