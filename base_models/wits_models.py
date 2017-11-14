@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, BLOB
+from sqlalchemy import Column
+from sqlalchemy import Integer, String, ForeignKey, Text, BLOB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -7,9 +8,11 @@ Base = declarative_base()
 
 class Meta:
     __tablename__ = None
+
     def __repr__(self):
         return ('<{}({})>'.format(self.__tablename__, ','.join(
             str(atr) for _, atr in self.__class__.__dict__.items() if not _.startswith('_'))))
+
 
 class Wits_network(Base, Meta):
     __tablename__ = 'WITS_NETWORK'
@@ -63,6 +66,7 @@ class Wits_user_log(Base, Meta):
     event = relationship('Wits_user_event', backref='events')
     sessions = relationship('Wits_user', backref='sessions')
 
+
 class Wits_user_event(Base, Meta):
     __tablename__ = 'WITS_USER_EVENT'
 
@@ -77,3 +81,13 @@ class Wits_user_group(Base, Meta):
     id = Column('id', Integer, primary_key=True, autoincrement=True)
     network_id = Column('network_id', Integer, ForeignKey('WITS_NETWORK.id'))
     name = Column('name', String(255))
+
+
+class Table_mapper():
+    def __init__(self, engine=None):
+        self.meta = Base.metadata
+        self.meta.reflect(bind=engine)
+        self.tables = self.meta.tables
+
+    def return_mapped_table(self, name=None):
+        return self.tables[name]
