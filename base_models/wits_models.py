@@ -1,5 +1,6 @@
 from sqlalchemy import Column
-from sqlalchemy import Integer, String, ForeignKey, Text, BLOB
+from sqlalchemy import Integer, String, ForeignKey, Text, DateTime
+from sqlalchemy import BLOB, DECIMAL, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -83,7 +84,56 @@ class Wits_user_group(Base, Meta):
     name = Column('name', String(255))
 
 
-class Table_mapper():
+class Wits_well(Base, Meta):
+    __tablename__ = 'WITS_WELL'
+    # __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255))
+    wellbore_id = Column(Integer)  # , ForeignKey('WITS_WELLBORE.id'))
+    source_id = Column(Integer)
+    created_date = Column(DateTime)
+    modified_date = Column(DateTime)
+    timeshift = Column(Integer)
+    logs_offset = Column(String(6))
+    timezone = Column(String(6))
+    alias = Column(String(255))
+    external_id = Column(String(39))
+
+    # source = relationship("Wits_source", backref="id")
+    # wellbore = relationship('Wits_wellbore', backref='well')
+
+    @classmethod
+    def checkwell(cls, ses, name: str):
+        return bool(ses.query(cls.name).filter(cls.name == name).count())
+
+
+class Wits_wellbore(Base, Meta):
+    __tablename__ = 'WITS_WELLBORE'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255))
+    well_id = Column(Integer, ForeignKey('WITS_WELL.id'))
+    packet_id_min = Column(Integer)
+    packet_id_max = Column(Integer)
+    created_date = Column(DateTime)
+    modified_date = Column(DateTime)
+    status_id = Column(Integer)
+    purpose_id = Column(Integer)
+    type_id = Column(Integer)
+    source_type_id = Column(Integer)
+    plan_depth_unit = Column(Enum('m', 'ft'))
+    plan_start_depth = Column(DECIMAL)
+    plan_start_date = Column(DateTime)
+    current_date = Column(DateTime)
+    current_depth = Column(DECIMAL)
+    bit_pos = Column(DECIMAL)
+    activity_id = Column(Integer)
+
+    well = relationship('Wits_well', backref='wellbores')
+
+
+class TableMapper:
     def __init__(self, engine=None):
         self.meta = Base.metadata
         self.meta.reflect(bind=engine)
@@ -91,3 +141,6 @@ class Table_mapper():
 
     def return_mapped_table(self, name=None):
         return self.tables[name]
+
+import sys
+

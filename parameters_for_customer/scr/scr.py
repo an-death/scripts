@@ -5,7 +5,6 @@ from collections import OrderedDict
 
 import pandas as pd
 from sqlalchemy.exc import ProgrammingError
-# from xlsxwriter import worksheet
 from xlsxwriter.utility import xl_range, xl_col_to_name
 
 from classes import Project, Well
