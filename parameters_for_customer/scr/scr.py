@@ -18,6 +18,11 @@ RECORDS_COMPREHENSION = {
 
 
 def get_date():
+    """
+    Deprecated!
+    You should use class 
+    :return: 
+    """
     date1 = datetime.datetime.now()
     diff = datetime.timedelta(weeks=2)
     date2 = date1 - diff
